@@ -45,6 +45,7 @@ function DetailChip({
 export default function HistoryDetailPage() {
   const params = useParams()
   const router = useRouter()
+
   const [data, setData] = useState<RecordItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -52,9 +53,13 @@ export default function HistoryDetailPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [walkthroughActive, setWalkthroughActive] = useState(false)
   const [currentStep, setCurrentStep] = useState<WalkthroughStepId | null>(null)
+
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [detailTourReady, setDetailTourReady] = useState(false)
   const [overlayReadyTick, setOverlayReadyTick] = useState(0)
 
   const imageRef = useRef<HTMLDivElement | null>(null)
+  const imageElRef = useRef<HTMLImageElement | null>(null)
   const statusRef = useRef<HTMLDivElement | null>(null)
   const leftoversRef = useRef<HTMLDivElement | null>(null)
   const messageRef = useRef<HTMLDivElement | null>(null)
@@ -111,6 +116,50 @@ export default function HistoryDetailPage() {
     loadDetail()
   }, [recordId, router])
 
+  useEffect(() => {
+    setImageLoaded(false)
+    setDetailTourReady(false)
+  }, [data?.image_url, currentStep])
+
+  useEffect(() => {
+    if (!data?.image_url) return
+
+    const img = imageElRef.current
+    if (img && img.complete) {
+      setImageLoaded(true)
+    }
+  }, [data?.image_url])
+
+  useEffect(() => {
+    if (!walkthroughActive || !currentStep || loading) return
+
+    const targetMap: Partial<Record<WalkthroughStepId, HTMLElement | null>> = {
+      'detail-image': imageRef.current,
+      'detail-status': statusRef.current,
+      'detail-leftovers': leftoversRef.current,
+      'detail-message': messageRef.current,
+      'detail-time': timeRef.current,
+    }
+
+    const target = targetMap[currentStep]
+    if (!target) return
+
+    if (currentStep === 'detail-image' && !imageLoaded) return
+
+    setDetailTourReady(false)
+
+    const timeoutId = window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setDetailTourReady(true)
+          setOverlayReadyTick((prev) => prev + 1)
+        })
+      })
+    }, 260)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [walkthroughActive, currentStep, loading, imageLoaded, data])
+
   const leftovers = [
     data?.leftover_rice ? 'Nasi' : null,
     data?.leftover_vegetable ? 'Sayuran' : null,
@@ -133,7 +182,7 @@ export default function HistoryDetailPage() {
   }, [data, leftovers.length])
 
   useEffect(() => {
-    if (!walkthroughActive || !currentStep) return
+    if (!walkthroughActive || !currentStep || !detailTourReady) return
 
     const targetMap: Partial<Record<WalkthroughStepId, HTMLElement | null>> = {
       'detail-image': imageRef.current,
@@ -150,7 +199,7 @@ export default function HistoryDetailPage() {
         block: 'center',
       })
     }
-  }, [walkthroughActive, currentStep, data])
+  }, [walkthroughActive, currentStep, detailTourReady, overlayReadyTick])
 
   function refreshWalkthrough() {
     if (!userId) return
@@ -168,6 +217,7 @@ export default function HistoryDetailPage() {
     if (index === detailSteps.length - 1) {
       finishWalkthrough(userId)
       refreshWalkthrough()
+      router.push('/main')
       return
     }
 
@@ -241,6 +291,23 @@ export default function HistoryDetailPage() {
     return null
   }, [currentStep])
 
+  const overlayTargetReady = useMemo(() => {
+    if (!walkthroughActive || !currentStep || loading || !detailTourReady) {
+      return false
+    }
+
+    if (currentStep === 'detail-image') {
+      return Boolean(imageRef.current) && Boolean(imageElRef.current) && imageLoaded
+    }
+
+    if (currentStep === 'detail-status') return Boolean(statusRef.current)
+    if (currentStep === 'detail-leftovers') return Boolean(leftoversRef.current)
+    if (currentStep === 'detail-message') return Boolean(messageRef.current)
+    if (currentStep === 'detail-time') return Boolean(timeRef.current)
+
+    return false
+  }, [walkthroughActive, currentStep, loading, detailTourReady, imageLoaded])
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(187,247,208,0.42),_transparent_30%),linear-gradient(to_bottom,_#f7fdf8,_#ffffff)] pb-8">
       <div className="mx-auto w-full max-w-md px-4 py-5">
@@ -275,12 +342,15 @@ export default function HistoryDetailPage() {
                   className="overflow-hidden rounded-[28px] bg-slate-100 shadow-sm"
                 >
                   <img
+                    ref={imageElRef}
                     src={data.image_url}
                     alt="Riwayat piring"
                     className="h-72 w-full object-cover"
+                    onLoad={() => setImageLoaded(true)}
                     onError={(e) => {
                       e.currentTarget.src =
                         'https://placehold.co/800x600?text=No+Image'
+                      setImageLoaded(true)
                     }}
                   />
                 </div>
@@ -423,8 +493,9 @@ export default function HistoryDetailPage() {
         </button>
       </div>
 
-      {walkthroughActive && walkthroughConfig && (
+      {walkthroughActive && walkthroughConfig && overlayTargetReady && (
         <WalkthroughOverlay
+          key={`${currentStep}-${recordId}-${overlayReadyTick}-${imageLoaded ? 'loaded' : 'loading'}-${detailTourReady ? 'ready' : 'not-ready'}`}
           open
           stepLabel={walkthroughConfig.stepLabel}
           title={walkthroughConfig.title}
@@ -433,6 +504,7 @@ export default function HistoryDetailPage() {
           onClose={() => {
             if (userId) finishWalkthrough(userId)
             refreshWalkthrough()
+            router.push('/main')
           }}
           onNext={handleNext}
           onBack={handleBack}
@@ -444,6 +516,7 @@ export default function HistoryDetailPage() {
               : 'Next'
           }
           blockTargetClick={false}
+          preferredPlacement="top"
         />
       )}
     </main>

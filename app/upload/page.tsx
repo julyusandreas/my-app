@@ -36,8 +36,6 @@ export default function UploadPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [walkthroughActive, setWalkthroughActive] = useState(false)
   const [currentStep, setCurrentStep] = useState<WalkthroughStepId | null>(null)
-
-  // penting: trigger rerender tambahan supaya ref target kebaca
   const [overlayReadyTick, setOverlayReadyTick] = useState(0)
 
   function stopCamera() {
@@ -109,7 +107,6 @@ export default function UploadPage() {
     }
   }, [capturedImage])
 
-  // penting: setelah UI berubah, kasih 2 frame supaya ref target pasti attach
   useEffect(() => {
     const raf1 = requestAnimationFrame(() => {
       const raf2 = requestAnimationFrame(() => {
@@ -263,9 +260,15 @@ export default function UploadPage() {
     }
   }
 
-  async function saveResult() {
+  async function saveResult(options?: { fromTour?: boolean }) {
   const session = getSession()
   if (!session || !result || !capturedImage) return
+
+  const fromTour = options?.fromTour === true
+
+  if (walkthroughActive && currentStep === 'upload-result' && !fromTour) {
+    return
+  }
 
   try {
     setLoading(true)
@@ -297,14 +300,13 @@ export default function UploadPage() {
       data?.id ??
       null
 
-    stopCamera()
-
     if (session.id && walkthroughActive && savedRecordId) {
-      setWalkthroughStep(session.id, 'detail-image')
-      router.push(`/history/${savedRecordId}`)
-      return
+      setWalkthroughStep(session.id, 'main-history-open', {
+        focusRecordId: savedRecordId,
+      })
     }
 
+    stopCamera()
     router.push('/main')
   } catch (error) {
     console.error('Save result error:', error)
@@ -318,13 +320,16 @@ export default function UploadPage() {
   }
 }
 
+  async function saveResultFromTour() {
+    await saveResult({ fromTour: true })
+  }
+
   function handleWalkthroughNext() {
     if (!userId || !currentStep) return
 
     if (currentStep === 'upload-camera') {
       setWalkthroughStep(userId, 'upload-capture')
       refreshWalkthroughState()
-      return
     }
   }
 
@@ -382,7 +387,7 @@ export default function UploadPage() {
         stepLabel: 'Upload Step 3 of 4',
         title: 'Tombol Kirim untuk analisis',
         description:
-          'Sekarang tekan tombol Kirim di bawah ini untuk memproses gambar. Setelah hasil keluar, tutorial akan lanjut ke tahap simpan.',
+          'Sekarang tekan tombol Kirim di bawah ini untuk memproses gambar.',
         target: sendButtonRef.current,
         showNext: false,
         showBack: true,
@@ -398,30 +403,30 @@ export default function UploadPage() {
         stepLabel: 'Upload Step 4 of 4',
         title: 'Ini adalah hasil analisis',
         description:
-          'Sekarang tekan tombol Simpan di bawah ini agar hasil scan masuk ke riwayat.',
+          'Sekarang tekan tombol Simpan di tutorial box ini agar hasil scan masuk ke riwayat.',
         target: resultModalRef.current,
         showNext: false,
         showBack: true,
         nextLabel: 'Next',
         blockTargetClick: true,
         primaryActionLabel: 'Simpan',
-        onPrimaryAction: saveResult,
+        onPrimaryAction: saveResultFromTour,
       }
     }
 
     return null
-  }, [currentStep, capturedImage, result, userId, walkthroughActive, overlayReadyTick])
+  }, [currentStep, result])
 
   const overlayTargetReady = useMemo(() => {
-    if (!walkthroughActive || !walkthroughConfig) return false
+    if (!walkthroughActive || !currentStep) return false
 
     if (currentStep === 'upload-camera') return Boolean(previewRef.current)
     if (currentStep === 'upload-capture') return Boolean(captureButtonRef.current)
     if (currentStep === 'upload-send') return Boolean(sendButtonRef.current)
     if (currentStep === 'upload-result') return Boolean(resultModalRef.current)
 
-    return Boolean(walkthroughConfig.target)
-  }, [walkthroughActive, walkthroughConfig, currentStep, capturedImage, showModal, overlayReadyTick])
+    return false
+  }, [walkthroughActive, currentStep, capturedImage, showModal, overlayReadyTick])
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md px-4 py-6">
@@ -528,15 +533,17 @@ export default function UploadPage() {
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
                   <button
-                    onClick={saveResult}
-                    className="rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white"
+                    onClick={() => saveResult({ fromTour: false })}
+                    disabled={walkthroughActive && currentStep === 'upload-result'}
+                    className="rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Simpan
                   </button>
 
                   <button
                     onClick={() => setShowModal(false)}
-                    className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800"
+                    disabled={walkthroughActive && currentStep === 'upload-result'}
+                    className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Batal
                   </button>
@@ -549,6 +556,7 @@ export default function UploadPage() {
 
       {walkthroughActive && walkthroughConfig && overlayTargetReady && (
         <WalkthroughOverlay
+          key={`${currentStep}-${overlayReadyTick}-${capturedImage ? 'captured' : 'preview'}-${showModal ? 'modal' : 'no-modal'}`}
           open
           stepLabel={walkthroughConfig.stepLabel}
           title={walkthroughConfig.title}

@@ -31,6 +31,7 @@ type WalkthroughOverlayProps = {
   blockTargetClick?: boolean
   primaryActionLabel?: string
   onPrimaryAction?: () => void
+  preferredPlacement?: 'auto' | 'top' | 'bottom'
 }
 
 const PANEL_WIDTH = 360
@@ -52,6 +53,7 @@ export default function WalkthroughOverlay({
   blockTargetClick = false,
   primaryActionLabel,
   onPrimaryAction,
+  preferredPlacement = 'auto',
 }: WalkthroughOverlayProps) {
   const [rect, setRect] = useState<RectState | null>(null)
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
@@ -62,12 +64,10 @@ export default function WalkthroughOverlay({
     if (!open) return
 
     function updateMeasurements() {
-      if (typeof window !== 'undefined') {
-        setViewport({
-          width: window.innerWidth,
-          height: window.innerHeight,
-        })
-      }
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
 
       if (targetElement) {
         const r = targetElement.getBoundingClientRect()
@@ -136,7 +136,7 @@ export default function WalkthroughOverlay({
 
   const computedPanelWidth = useMemo(() => {
     if (!viewport.width) return PANEL_WIDTH
-    return Math.min(PANEL_WIDTH, viewport.width - PANEL_MARGIN * 2)
+    return Math.min(PANEL_WIDTH, Math.max(280, viewport.width - PANEL_MARGIN * 2))
   }, [viewport.width])
 
   const panelPosition = useMemo<PanelPosition | null>(() => {
@@ -162,8 +162,16 @@ export default function WalkthroughOverlay({
     const spaceBelow = viewport.height - (rect.top + rect.height)
     const spaceAbove = rect.top
 
-    const shouldPlaceBelow =
-      spaceBelow >= panelHeight + TARGET_GAP || spaceBelow >= spaceAbove
+    let shouldPlaceBelow: boolean
+
+    if (preferredPlacement === 'top') {
+      shouldPlaceBelow = false
+    } else if (preferredPlacement === 'bottom') {
+      shouldPlaceBelow = true
+    } else {
+      shouldPlaceBelow =
+        spaceBelow >= panelHeight + TARGET_GAP || spaceBelow >= spaceAbove
+    }
 
     let top: number
     let placement: 'top' | 'bottom'
@@ -182,7 +190,7 @@ export default function WalkthroughOverlay({
     )
 
     return { top, left, placement }
-  }, [rect, viewport, panelSize, computedPanelWidth])
+  }, [rect, viewport, panelSize, computedPanelWidth, preferredPlacement])
 
   const arrowStyle = useMemo(() => {
     if (!rect || !panelPosition) return undefined

@@ -78,10 +78,12 @@ function HistoryCard({
   item,
   onClick,
   cardRef,
+  highlighted = false,
 }: {
   item: RecordItem
   onClick: () => void
   cardRef?: React.Ref<HTMLButtonElement>
+  highlighted?: boolean
 }) {
   const leftovers = getLeftoverLabels(item)
 
@@ -89,7 +91,11 @@ function HistoryCard({
     <button
       ref={cardRef}
       onClick={onClick}
-      className="flex w-full items-center gap-4 rounded-[28px] border border-slate-100 bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
+      className={`flex w-full items-center gap-4 rounded-[28px] border bg-white p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 ${
+        highlighted
+          ? 'border-emerald-300 ring-4 ring-emerald-200 shadow-[0_0_0_4px_rgba(16,185,129,0.10)]'
+          : 'border-slate-100'
+      }`}
     >
       <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-slate-100 shadow-sm">
         <img
@@ -157,11 +163,14 @@ export default function MainPage() {
   const [showIntroPopup, setShowIntroPopup] = useState(false)
   const [walkthroughActive, setWalkthroughActive] = useState(false)
   const [currentStep, setCurrentStep] = useState<WalkthroughStepId | null>(null)
+  const [focusRecordId, setFocusRecordId] = useState<string | null>(null)
+  const [overlayReadyTick, setOverlayReadyTick] = useState(0)
+  const [historyTourReady, setHistoryTourReady] = useState(false)
 
   const statsRef = useRef<HTMLDivElement | null>(null)
   const historyRef = useRef<HTMLElement | null>(null)
   const uploadButtonRef = useRef<HTMLButtonElement | null>(null)
-  const firstHistoryCardRef = useRef<HTMLButtonElement | null>(null)
+  const historyCardRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   const hasHistory = (dashboard?.history?.length ?? 0) > 0
 
@@ -204,11 +213,39 @@ export default function MainPage() {
     const state = getWalkthroughState(currentSession.id)
     setWalkthroughActive(state.active)
     setCurrentStep(state.currentStep)
+    setFocusRecordId(state.focusRecordId ?? null)
 
     if (!state.seen && !state.active) {
       setShowIntroPopup(true)
     }
   }, [router])
+
+  const focusedHistoryItem =
+    dashboard?.history?.find((item) => item.id === focusRecordId) ??
+    dashboard?.history?.[0] ??
+    null
+
+  const focusedHistoryTarget =
+    focusedHistoryItem ? historyCardRefs.current[focusedHistoryItem.id] ?? null : null
+
+  useEffect(() => {
+    setHistoryTourReady(false)
+
+    if (!walkthroughActive) return
+    if (currentStep !== 'main-history-open') return
+    if (loading) return
+    if (!focusedHistoryTarget) return
+
+    const timeoutId = window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setHistoryTourReady(true)
+        })
+      })
+    }, 220)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [walkthroughActive, currentStep, loading, focusedHistoryTarget, dashboard])
 
   useEffect(() => {
     if (!walkthroughActive || !currentStep) return
@@ -217,7 +254,7 @@ export default function MainPage() {
       'main-stats': statsRef.current,
       'main-history': historyRef.current,
       'main-upload': uploadButtonRef.current,
-      'main-history-open': hasHistory ? firstHistoryCardRef.current : uploadButtonRef.current,
+      'main-history-open': hasHistory ? focusedHistoryTarget : uploadButtonRef.current,
     }
 
     const el = targetMap[currentStep]
@@ -227,13 +264,38 @@ export default function MainPage() {
         block: 'center',
       })
     }
-  }, [walkthroughActive, currentStep, dashboard, hasHistory])
+  }, [
+    walkthroughActive,
+    currentStep,
+    dashboard,
+    hasHistory,
+    focusedHistoryTarget,
+    overlayReadyTick,
+    historyTourReady,
+  ])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => {
+          setOverlayReadyTick((prev) => prev + 1)
+        })
+
+        return () => cancelAnimationFrame(raf2)
+      })
+
+      return () => cancelAnimationFrame(raf1)
+    }, 180)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [currentStep, dashboard, focusRecordId])
 
   function refreshWalkthroughState() {
     if (!user) return
     const state = getWalkthroughState(user.id)
     setWalkthroughActive(state.active)
     setCurrentStep(state.currentStep)
+    setFocusRecordId(state.focusRecordId ?? null)
   }
 
   function handleLogout() {
@@ -261,54 +323,60 @@ export default function MainPage() {
     setShowIntroPopup(true)
     setWalkthroughActive(false)
     setCurrentStep(null)
+    setFocusRecordId(null)
+  }
+
+  function handleOpenFocusedHistoryFromTour() {
+    if (!user) return
+
+    if (!hasHistory) {
+      setWalkthroughStep(user.id, 'main-upload')
+      refreshWalkthroughState()
+      return
+    }
+
+    const targetHistory =
+      dashboard?.history?.find((item) => item.id === focusRecordId) ??
+      dashboard?.history?.[0]
+
+    if (!targetHistory) {
+      setWalkthroughStep(user.id, 'main-upload')
+      refreshWalkthroughState()
+      return
+    }
+
+    setWalkthroughStep(user.id, 'detail-image', {
+      focusRecordId: targetHistory.id,
+    })
+    router.push(`/history/${targetHistory.id}`)
   }
 
   function handleMainNext() {
-  if (!user || !currentStep) return
+    if (!user || !currentStep) return
 
-  if (currentStep === 'main-stats') {
-    setWalkthroughStep(user.id, 'main-history')
-    refreshWalkthroughState()
-    return
+    if (currentStep === 'main-stats') {
+      setWalkthroughStep(user.id, 'main-history')
+      refreshWalkthroughState()
+      return
+    }
+
+    if (currentStep === 'main-history') {
+      setWalkthroughStep(user.id, 'main-upload')
+      refreshWalkthroughState()
+      return
+    }
+
+    if (currentStep === 'main-upload') {
+      setWalkthroughStep(user.id, 'upload-camera')
+      router.push('/upload')
+      return
+    }
+
+    if (currentStep === 'main-history-open') {
+      handleOpenFocusedHistoryFromTour()
+      return
+    }
   }
-
-  if (currentStep === 'main-history') {
-    setWalkthroughStep(user.id, 'main-upload')
-    refreshWalkthroughState()
-    return
-  }
-
-  if (currentStep === 'main-upload') {
-    setWalkthroughStep(user.id, 'upload-camera')
-    router.push('/upload')
-    return
-  }
-
-  if (currentStep === 'main-history-open') {
-    handleOpenFirstHistoryFromTour()
-    return
-  }
-}
-
-function handleOpenFirstHistoryFromTour() {
-  if (!user) return
-
-  if (!hasHistory) {
-    setWalkthroughStep(user.id, 'main-upload')
-    refreshWalkthroughState()
-    return
-  }
-
-  const firstHistory = dashboard?.history?.[0]
-  if (!firstHistory) {
-    setWalkthroughStep(user.id, 'main-upload')
-    refreshWalkthroughState()
-    return
-  }
-
-  setWalkthroughStep(user.id, 'detail-image')
-  router.push(`/history/${firstHistory.id}`)
-}
 
   function handleMainBack() {
     if (!user || !currentStep) return
@@ -341,6 +409,8 @@ function handleOpenFirstHistoryFromTour() {
         showNext: true,
         showBack: false,
         nextLabel: 'Next',
+        primaryActionLabel: undefined,
+        onPrimaryAction: undefined,
       }
     }
 
@@ -354,6 +424,8 @@ function handleOpenFirstHistoryFromTour() {
         showNext: true,
         showBack: true,
         nextLabel: 'Next',
+        primaryActionLabel: undefined,
+        onPrimaryAction: undefined,
       }
     }
 
@@ -367,41 +439,66 @@ function handleOpenFirstHistoryFromTour() {
         showNext: true,
         showBack: true,
         nextLabel: 'Go to Upload',
+        primaryActionLabel: undefined,
+        onPrimaryAction: undefined,
       }
     }
 
     if (currentStep === 'main-history-open') {
-  if (!hasHistory) {
-    return {
-      stepLabel: 'Step 4 of 4',
-      title: 'Belum ada riwayat untuk dibuka',
-      description:
-        'Akun ini belum punya hasil scan yang tersimpan. Buat scan pertama dulu lewat tombol Scan Plate, lalu riwayat akan muncul di sini.',
-      target: uploadButtonRef.current,
-      showNext: true,
-      showBack: true,
-      nextLabel: 'Buat Scan Dulu',
-      primaryActionLabel: undefined,
-      onPrimaryAction: undefined,
-    }
-  }
+      if (!hasHistory) {
+        return {
+          stepLabel: 'Step 4 of 4',
+          title: 'Belum ada riwayat untuk dibuka',
+          description:
+            'Akun ini belum punya hasil scan yang tersimpan. Buat scan pertama dulu lewat tombol Scan Plate, lalu riwayat akan muncul di sini.',
+          target: uploadButtonRef.current,
+          showNext: true,
+          showBack: true,
+          nextLabel: 'Buat Scan Dulu',
+          primaryActionLabel: undefined,
+          onPrimaryAction: undefined,
+        }
+      }
 
-  return {
-    stepLabel: 'Step 4 of 4',
-    title: 'Buka kartu history yang sedang disorot',
-    description:
-      'Kartu history yang sedang disorot ini bisa dibuka untuk melihat detail hasil scan. Tekan tombol di bawah untuk langsung masuk ke halaman detail.',
-    target: firstHistoryCardRef.current,
-    showNext: false,
-    showBack: true,
-    nextLabel: 'Open Detail',
-    primaryActionLabel: 'Buka Detail History',
-    onPrimaryAction: handleOpenFirstHistoryFromTour,
-  }
-}
+      return {
+        stepLabel: 'Step 4 of 4',
+        title: 'Ini adalah history yang baru saja kamu simpan',
+        description:
+          'Card history yang diberi outline hijau adalah hasil scan yang baru saja dibuat. Tekan tombol di bawah untuk membuka halaman detailnya.',
+        target: focusedHistoryTarget,
+        showNext: false,
+        showBack: true,
+        nextLabel: 'Open Detail',
+        primaryActionLabel: 'Buka Detail History',
+        onPrimaryAction: handleOpenFocusedHistoryFromTour,
+      }
+    }
 
     return null
-  }, [currentStep, hasHistory])
+  }, [currentStep, hasHistory, focusedHistoryTarget, dashboard])
+
+  const overlayTargetReady = useMemo(() => {
+    if (!walkthroughActive || !currentStep) return false
+
+    if (currentStep === 'main-stats') return Boolean(statsRef.current)
+    if (currentStep === 'main-history') return Boolean(historyRef.current)
+    if (currentStep === 'main-upload') return Boolean(uploadButtonRef.current)
+
+    if (currentStep === 'main-history-open') {
+      if (!hasHistory) return Boolean(uploadButtonRef.current)
+      return Boolean(focusedHistoryTarget) && historyTourReady && !loading
+    }
+
+    return false
+  }, [
+    walkthroughActive,
+    currentStep,
+    hasHistory,
+    focusedHistoryTarget,
+    overlayReadyTick,
+    historyTourReady,
+    loading,
+  ])
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(187,247,208,0.42),_transparent_30%),linear-gradient(to_bottom,_#f7fdf8,_#ffffff)] pb-28">
@@ -440,6 +537,13 @@ function handleOpenFirstHistoryFromTour() {
         {error && (
           <section className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 shadow-sm">
             {error}
+          </section>
+        )}
+
+        {debug && (
+          <section className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 shadow-sm">
+            <p>Debug requestedUserId: {debug.requestedUserId}</p>
+            <p>Debug totalRecords: {debug.totalRecords}</p>
           </section>
         )}
 
@@ -513,14 +617,23 @@ function handleOpenFirstHistoryFromTour() {
                 Memuat data...
               </div>
             ) : dashboard?.history?.length ? (
-              dashboard.history.map((item, index) => (
+              dashboard.history.map((item) => (
                 <HistoryCard
                   key={item.id}
                   item={item}
-                  cardRef={index === 0 ? firstHistoryCardRef : undefined}
+                  highlighted={
+                    walkthroughActive &&
+                    currentStep === 'main-history-open' &&
+                    focusedHistoryItem?.id === item.id
+                  }
+                  cardRef={(el) => {
+                    historyCardRefs.current[item.id] = el
+                  }}
                   onClick={() => {
-                    if (user && currentStep === 'main-history-open' && index === 0) {
-                      setWalkthroughStep(user.id, 'detail-image')
+                    if (user && currentStep === 'main-history-open') {
+                      setWalkthroughStep(user.id, 'detail-image', {
+                        focusRecordId: item.id,
+                      })
                     }
                     router.push(`/history/${item.id}`)
                   }}
@@ -579,8 +692,9 @@ function handleOpenFirstHistoryFromTour() {
         </div>
       )}
 
-      {walkthroughActive && walkthroughConfig && (
+      {walkthroughActive && walkthroughConfig && overlayTargetReady && (
         <WalkthroughOverlay
+          key={`${currentStep}-${focusRecordId ?? 'none'}-${overlayReadyTick}-${historyTourReady ? 'ready' : 'not-ready'}`}
           open
           stepLabel={walkthroughConfig.stepLabel}
           title={walkthroughConfig.title}
@@ -595,7 +709,8 @@ function handleOpenFirstHistoryFromTour() {
           blockTargetClick={false}
           primaryActionLabel={walkthroughConfig.primaryActionLabel}
           onPrimaryAction={walkthroughConfig.onPrimaryAction}
-          />
+          preferredPlacement={currentStep === 'main-history-open' ? 'bottom' : 'auto'}
+        />
       )}
     </main>
   )

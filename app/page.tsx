@@ -29,13 +29,13 @@ export default function HomePage() {
         </div>
 
         <div className="mt-10 flex w-full justify-center">
-          <div className="flex h-[320px] w-[320px] items-center justify-center rounded-full bg-gradient-to-b from-green-50 to-emerald-100 md:h-[260px] md:w-[260px]">
+          <div className="flex h-[320px] w-[320px] items-center justify-center rounded-full bg-gradient-to-b from-green-50 to-emerald-100 md:h-[260px] md:w-[260px] overflow-hidden">
             <Image
-              src="/illustrations/eating.png"
+              src="/illustrations/eating-illustration.png"
               alt="Ilustrasi aplikasi Clean Plate"
               width={260}
               height={260}
-              className="h-auto w-[240px] object-contain md:w-[280px]"
+              className="h-auto w-[340px] object-contain scale-125 md:w-[320px] md:scale-125"
               priority
             />
           </div>

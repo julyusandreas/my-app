@@ -46,10 +46,8 @@ export default function HomePage() {
             Finish What You Take
           </h2>
 
-          <p className="mt-3 text-base leading-5 text-slate-500">
-            Clean Plate helps you build awareness of food waste by tracking
-            leftover food on your plate and encouraging better eating habits
-            through simple, interactive feedback.
+          <p className="mt-3 text-base leading-5 text-slate-500 text-justify">
+            Track leftovers, reduce waste, and build better eating habits with simple, interactive feedback.
           </p>
         </div>
       </section>

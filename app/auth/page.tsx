@@ -64,6 +64,7 @@ export default function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [gender, setGender] = useState<'male' | 'female' | ''>('')
 
   useEffect(() => {
     const session = getSession()
@@ -99,6 +100,7 @@ export default function AuthPage() {
       displayName.trim() !== '' &&
       password.trim() !== '' &&
       confirmPassword.trim() !== '' &&
+      gender !== '' &&
       isPasswordValid &&
       isConfirmPasswordValid
     )
@@ -107,6 +109,7 @@ export default function AuthPage() {
     displayName,
     password,
     confirmPassword,
+    gender,
     isPasswordValid,
     isConfirmPasswordValid,
   ])
@@ -128,6 +131,11 @@ export default function AuthPage() {
           setError('Retype password belum cocok.')
           return
         }
+
+        if (!gender) {
+          setError('Gender wajib dipilih.')
+          return
+        }
       }
 
       const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup'
@@ -143,6 +151,7 @@ export default function AuthPage() {
               displayName: displayName.trim(),
               password,
               confirmPassword,
+              gender,
             }
 
       const res = await fetch(endpoint, {
@@ -374,6 +383,40 @@ export default function AuthPage() {
                 </div>
               )}
             </div>
+
+            {mode === 'signup' && (
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
+                  Gender
+                </label>
+
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setGender('male')}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                      gender === 'male'
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-600'
+                    }`}
+                  >
+                    Male
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGender('female')}
+                    className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                      gender === 'female'
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                        : 'border-slate-200 bg-white text-slate-600'
+                    }`}
+                  >
+                    Female
+                  </button>
+                </div>
+              </div>
+            )}
 
             {error && (
               <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">

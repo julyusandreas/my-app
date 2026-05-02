@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         image_url: imageUrl,
         image_path: imagePath,
         is_clean_plate: isCleanPlate,
-        leftover_rice: leftoverTypes?.includes('nasi') ?? false,
+        leftover_rice: leftoverTypes?.includes('rice') ?? false,
         leftover_vegetable: leftoverTypes?.includes('vegetables') ?? false,
         leftover_side_dish: leftoverTypes?.includes('lauk') ?? false,
         ai_message: aiMessage ?? null,

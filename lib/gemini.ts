@@ -23,7 +23,7 @@ Tugas:
 Format wajib:
 {
   "isCleanPlate": boolean,
-  "leftoverTypes": ["nasi" | "sayuran" | "lauk"],
+  "leftoverTypes": ["nasi" | "sayuran" | "protein dishes"],
   "message": string
 }
 

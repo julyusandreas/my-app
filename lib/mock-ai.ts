@@ -1,6 +1,6 @@
 import type { AnalyzeResult } from '@/lib/types'
 
-const FOOD_TYPES = ['nasi', 'sayuran', 'lauk'] as const
+const FOOD_TYPES = ['rice', 'vegetables', 'protein dishes'] as const
 
 export function mockAnalyze(): AnalyzeResult {
   const random = Math.random()
@@ -9,7 +9,7 @@ export function mockAnalyze(): AnalyzeResult {
     return {
       isCleanPlate: true,
       leftoverTypes: [],
-      message: 'Mantap! Piring kamu sudah bersih 🎉',
+      message: 'Keep up this habit to help reduce food waste',
     }
   }
 
@@ -20,6 +20,6 @@ export function mockAnalyze(): AnalyzeResult {
   return {
     isCleanPlate: false,
     leftoverTypes: [...leftovers],
-    message: 'Masih ada sisa makanan, ayo dihabiskan ya!',
+    message: 'Let’s try to finish your meal next time 💪',
   }
 }

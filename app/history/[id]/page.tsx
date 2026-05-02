@@ -161,9 +161,9 @@ export default function HistoryDetailPage() {
   }, [walkthroughActive, currentStep, loading, imageLoaded, data])
 
   const leftovers = [
-    data?.leftover_rice ? 'Nasi' : null,
-    data?.leftover_vegetable ? 'Sayuran' : null,
-    data?.leftover_side_dish ? 'Lauk' : null,
+    data?.leftover_rice ? 'Rice' : null,
+    data?.leftover_vegetable ? 'Vegetables' : null,
+    data?.leftover_side_dish ? 'Protein Dishes' : null,
   ].filter(Boolean) as string[]
 
   const detailSteps = useMemo(() => {
@@ -320,16 +320,16 @@ export default function HistoryDetailPage() {
                 <UtensilsCrossed className="size-5" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900">Detail Riwayat</h1>
+                <h1 className="text-lg font-bold text-slate-900">History Details</h1>
                 <p className="text-xs text-slate-400">
-                  Hasil scan piring yang sudah tersimpan
+                  Your saved meal scans
                 </p>
               </div>
             </div>
 
             {loading ? (
               <div className="rounded-3xl border border-slate-100 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                Memuat detail riwayat...
+                Loading history details...
               </div>
             ) : error ? (
               <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-6 text-sm text-red-600">
@@ -361,9 +361,9 @@ export default function HistoryDetailPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm text-slate-500">Status Hasil</p>
+                      <p className="text-sm text-slate-500">Result</p>
                       <h2 className="mt-1 text-xl font-bold text-slate-900">
-                        {data.is_clean_plate ? 'Piring Bersih' : 'Ayo Coba Lagi'}
+                        {data.is_clean_plate ? 'No Food Waste' : 'Food Waste Detected'}
                       </h2>
                     </div>
 
@@ -385,14 +385,14 @@ export default function HistoryDetailPage() {
                   <div className="mt-4">
                     {data.is_clean_plate ? (
                       <div className="rounded-2xl bg-emerald-50 px-4 py-4 text-emerald-700">
-                        <p className="font-semibold">Mantap! Piring bersih 🎉</p>
+                        <p className="font-semibold">🌟 Great job! You finished your meal</p>
                         {data.ai_message && (
                           <p className="mt-2 text-sm leading-6">{data.ai_message}</p>
                         )}
                       </div>
                     ) : (
                       <div className="rounded-2xl bg-amber-50 px-4 py-4 text-amber-700">
-                        <p className="font-semibold">Masih ada sisa makanan</p>
+                        <p className="font-semibold">A bit of food remains 😅</p>
                         {data.ai_message && (
                           <p className="mt-2 text-sm leading-6">{data.ai_message}</p>
                         )}
@@ -412,10 +412,10 @@ export default function HistoryDetailPage() {
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-slate-900">
-                          Klasifikasi Sisa Makanan
+                          Types of Food Left
                         </h3>
                         <p className="text-xs text-slate-400">
-                          Jenis makanan yang masih tersisa
+                          Food categories detected
                         </p>
                       </div>
                     </div>
@@ -445,11 +445,8 @@ export default function HistoryDetailPage() {
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-slate-900">
-                          Pesan AI
+                          Message
                         </h3>
-                        <p className="text-xs text-slate-400">
-                          Feedback dari hasil analisis
-                        </p>
                       </div>
                     </div>
 
@@ -468,7 +465,7 @@ export default function HistoryDetailPage() {
                       <Clock3 className="size-4" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400">Waktu Submit</p>
+                      <p className="text-xs text-slate-400">Submission Time</p>
                       <p className="text-sm font-medium text-slate-700">
                         {new Date(data.created_at).toLocaleString('id-ID')}
                       </p>
@@ -489,7 +486,7 @@ export default function HistoryDetailPage() {
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-4 text-base font-semibold text-white shadow-[0_14px_40px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
         >
           <ArrowLeft className="size-5" />
-          Kembali
+          Back
         </button>
       </div>
 

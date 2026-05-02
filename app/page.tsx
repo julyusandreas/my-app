@@ -22,7 +22,7 @@ export default function HomePage() {
       <section className="flex w-full flex-col items-center text-center">
         <div className="relative">
           <h1 className="bg-gradient-to-r from-emerald-700 via-lime-500 to-green-400 bg-clip-text text-5xl font-extrabold tracking-tight text-transparent drop-shadow-[0_4px_12px_rgba(34,197,94,0.25)] md:text-6xl">
-            Clean Plate
+            CleanPlate
           </h1>
 
           <div className="absolute -bottom-2 left-1/2 h-3 w-32 -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-200 via-lime-300 to-green-200 blur-md" />

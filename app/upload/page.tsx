@@ -466,14 +466,14 @@ export default function UploadPage() {
               className="flex items-center justify-center gap-2 rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white"
             >
               <Camera className="size-4" />
-              Ambil Gambar
+              Take Photo
             </button>
 
             <button
               onClick={handleCancel}
               className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800"
             >
-              Batal
+              Cancel
             </button>
           </div>
         ) : (
@@ -484,14 +484,14 @@ export default function UploadPage() {
               className="flex items-center justify-center gap-2 rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white"
             >
               <Send className="size-4" />
-              Kirim
+              Submit
             </button>
 
             <button
               onClick={retake}
               className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800"
             >
-              Batalkan
+              Cancel
             </button>
           </div>
         )}
@@ -506,19 +506,19 @@ export default function UploadPage() {
             {loading ? (
               <div className="text-center">
                 <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-lime-500 border-t-transparent" />
-                <p className="font-medium">Sedang memproses...</p>
+                <p className="font-medium">Processing your image...</p>
               </div>
             ) : (
               <div>
-                <h2 className="text-xl font-bold">Hasil Analisis</h2>
+                <h2 className="text-xl font-bold">Result</h2>
 
                 {result?.isCleanPlate ? (
                   <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-emerald-700">
-                    Piring bersih 🎉
+                    🌟 Great job! You finished your meal
                   </p>
                 ) : (
                   <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-amber-700">
-                    <p className="font-medium">Masih ada sisa makanan:</p>
+                    <p className="font-medium">A bit of food remains 😅 Food left on your plate:</p>
                     <ul className="mt-2 list-disc pl-5">
                       {result?.leftoverTypes.map((item) => (
                         <li key={item}>{item}</li>
@@ -537,7 +537,7 @@ export default function UploadPage() {
                     disabled={walkthroughActive && currentStep === 'upload-result'}
                     className="rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Simpan
+                    Save
                   </button>
 
                   <button
@@ -545,7 +545,7 @@ export default function UploadPage() {
                     disabled={walkthroughActive && currentStep === 'upload-result'}
                     className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Batal
+                    Cancel
                   </button>
                 </div>
               </div>

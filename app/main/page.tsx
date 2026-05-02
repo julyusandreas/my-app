@@ -35,9 +35,9 @@ type DebugInfo = {
 function getLeftoverLabels(item: RecordItem): string[] {
   const labels: string[] = []
 
-  if (item.leftover_rice) labels.push('Nasi')
-  if (item.leftover_vegetable) labels.push('Sayuran')
-  if (item.leftover_side_dish) labels.push('Lauk')
+  if (item.leftover_rice) labels.push('Rice')
+  if (item.leftover_vegetable) labels.push('Vegetables')
+  if (item.leftover_side_dish) labels.push('Protein Dishes')
 
   return labels
 }
@@ -118,7 +118,7 @@ function HistoryCard({
                   : 'bg-amber-50 text-amber-700'
               }`}
             >
-              {item.is_clean_plate ? 'Piring Bersih' : 'Ayo Coba Lagi'}
+              {item.is_clean_plate ? 'Clean Plates' : 'Food Left Behind'}
             </span>
           </div>
 
@@ -508,7 +508,7 @@ export default function MainPage() {
 
           <div className="relative flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="mt-4 text-sm text-slate-500">Halo,</p>
+              <p className="mt-4 text-sm text-slate-500">Hello,</p>
               <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900">
                 {user?.displayName || 'Pengguna'}
               </h1>
@@ -520,7 +520,7 @@ export default function MainPage() {
                 className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100"
               >
                 <RefreshCcw className="size-4" />
-                Tour Lagi
+                View Tour Again
               </button>
 
               <button
@@ -540,34 +540,37 @@ export default function MainPage() {
           </section>
         )}
 
-        {debug && (
-          <section className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 shadow-sm">
-            <p>Debug requestedUserId: {debug.requestedUserId}</p>
-            <p>Debug totalRecords: {debug.totalRecords}</p>
-          </section>
-        )}
+      
 
         <section ref={statsRef} className="mt-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">Rekap Sisa Makan</h2>
+            <h2 className="text-lg font-bold text-slate-900">Food Waste Recap</h2>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <StatCard
-              icon={<Soup className="size-5" />}
-              label="Nasi"
+              icon={
+                <img src="/illustrations/rice.png" alt="Rice" className="h-10 w-10" />
+              }
+              label="Rice"
               value={dashboard?.riceCount ?? 0}
               tone="green"
             />
+
             <StatCard
-              icon={<Salad className="size-5" />}
-              label="Sayuran"
+              icon={
+                <img src="/illustrations/vegetables.png" alt="Vegetables" className="h-10 w-10" />
+              }
+              label="Vegetables"
               value={dashboard?.vegetableCount ?? 0}
               tone="lime"
             />
+
             <StatCard
-              icon={<Drumstick className="size-5" />}
-              label="Lauk"
+              icon={
+                <img src="/illustrations/proteindishes.png" alt="Protein" className="h-10 w-10" />
+              }
+              label="Protein Dishes"
               value={dashboard?.sideDishCount ?? 0}
               tone="emerald"
             />
@@ -576,19 +579,32 @@ export default function MainPage() {
 
         <section className="mt-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-slate-900">Pencapaianku</h2>
+            <h2 className="text-lg font-bold text-slate-900">Your Progress</h2>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <StatCard
-              icon={<Sparkles className="size-5" />}
-              label="Piring Bersih"
+              icon={
+                <img
+                  src="/illustrations/nofoodwaste.png"
+                  alt="No Food Waste"
+                  className="h-10 w-10 object-contain"
+                />
+              }
+              label="No Food Waste"
               value={dashboard?.cleanPlateCount ?? 0}
               tone="emerald"
             />
+
             <StatCard
-              icon={<RotateCcw className="size-5" />}
-              label="Ayo Coba Lagi"
+              icon={
+                <img
+                  src="/illustrations/foodwastedetected.png"
+                  alt="Food Waste"
+                  className="h-10 w-10 object-contain"
+                />
+              }
+              label="Food Waste Detected"
               value={dashboard?.tryAgainCount ?? 0}
               tone="amber"
             />
@@ -604,9 +620,9 @@ export default function MainPage() {
               <History className="size-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Riwayat</h2>
+              <h2 className="text-lg font-bold text-slate-900">History</h2>
               <p className="text-xs text-slate-400">
-                Hasil scan piring yang sudah tersimpan
+                Your saved scan history
               </p>
             </div>
           </div>

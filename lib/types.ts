@@ -1,4 +1,4 @@
-export type LeftoverType = 'nasi' | 'sayuran' | 'lauk'
+export type LeftoverType = 'rice' | 'vegetables' | 'protein dishes'
 
 export type AnalyzeResult = {
   isCleanPlate: boolean

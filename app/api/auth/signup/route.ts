@@ -4,7 +4,7 @@ import { createAdminSupabaseClient } from '@/lib/supabase-admin'
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, displayName, password, confirmPassword } = await req.json()
+    const { userId, displayName, password, confirmPassword, gender } = await req.json()
 
     if (!userId || !displayName || !password || !confirmPassword) {
       return NextResponse.json(
@@ -23,6 +23,13 @@ export async function POST(req: NextRequest) {
     if (password !== confirmPassword) {
       return NextResponse.json(
         { error: 'Konfirmasi password tidak cocok.' },
+        { status: 400 }
+      )
+    }
+
+    if (!gender || !['male', 'female'].includes(gender)) {
+      return NextResponse.json(
+        { error: 'Gender wajib dipilih.' },
         { status: 400 }
       )
     }
@@ -60,8 +67,9 @@ export async function POST(req: NextRequest) {
         user_id: normalizedUserId,
         display_name: normalizedDisplayName,
         password_hash: passwordHash,
+        gender,
       })
-      .select('id, user_id, display_name, created_at')
+      .select('id, user_id, display_name, gender, created_at')
       .single()
 
     if (insertError) {

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clean Plate",
+  title: "CleanPlate",
   description: "Aplikasi scan sisa makanan di atas piring",
 };
 

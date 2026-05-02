@@ -7,8 +7,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
-  Pie,
-  PieChart,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,34 +16,46 @@ import {
 } from 'recharts'
 import {
   Activity,
-  Drumstick,
+  CalendarDays,
   Leaf,
-  PieChartIcon,
-  Salad,
-  Soup,
-  Sparkles,
+  Percent,
   UsersRound,
-  Venus,
-  Mars,
-  AlertTriangle,
 } from 'lucide-react'
 
 type DashboardData = {
-  totalUsers: number
-  male: number
-  female: number
-  totalScans: number
-  clean: number
-  waste: number
-  rice: number
-  vegetable: number
-  sideDish: number
-  wasteRate: number
-  cleanRate: number
-  avgScanPerUser: number
-  dominantWaste: {
-    name: string
-    value: number
+  summary: {
+    totalRespondents: number
+    maleRespondents: number
+    femaleRespondents: number
+    totalScans: number
+    cleanScans: number
+    wasteScans: number
+    wasteRate: number
+    cleanRate: number
+    startDateLabel: string | null
+    endDateLabel: string | null
+  }
+  trendByDate: {
+    date: string
+    totalScans: number
+    clean: number
+    waste: number
+    wasteRate: number
+  }[]
+  behaviorByGender: {
+    gender: string
+    totalScans: number
+    clean: number
+    waste: number
+    wasteRate: number
+    rice: number
+    vegetables: number
+    proteinDishes: number
+  }[]
+  foodWasteType: {
+    rice: number
+    vegetables: number
+    proteinDishes: number
   }
 }
 
@@ -53,13 +65,26 @@ const COLORS = {
   amber: '#f59e0b',
   blue: '#38bdf8',
   pink: '#f472b6',
-  slate: '#64748b',
 }
 
-export default function PublicDashboardPage() {
+function getRangeLabel(rangeFilter: string, customDays: number) {
+  if (rangeFilter === 'all') return 'All Time'
+  if (rangeFilter === 'custom') return `Last ${customDays} Days`
+  if (rangeFilter === '7d') return 'Last 7 Days'
+  if (rangeFilter === '14d') return 'Last 14 Days'
+  if (rangeFilter === '30d') return 'Last 30 Days'
+  return 'Last 30 Days'
+}
+
+export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const [genderFilter, setGenderFilter] = useState('all')
+  const [rangeFilter, setRangeFilter] = useState('30d')
+  const [groupBy, setGroupBy] = useState('daily')
+  const [customDays, setCustomDays] = useState(10)
 
   useEffect(() => {
     async function loadDashboard() {
@@ -67,61 +92,54 @@ export default function PublicDashboardPage() {
         setLoading(true)
         setError('')
 
-        const res = await fetch('/api/dashboard-public')
+        const params = new URLSearchParams({
+          gender: genderFilter,
+          range: rangeFilter,
+          groupBy,
+          days: customDays.toString(),
+        })
+
+        const res = await fetch(`/api/dashboard-public?${params.toString()}`, {
+          cache: 'no-store',
+        })
+
         const result = await res.json()
 
         if (!res.ok) {
-          setError(result.error || 'Gagal memuat dashboard.')
+          setError(result.error || 'Failed to load dashboard.')
           return
         }
 
         setData(result)
       } catch {
-        setError('Terjadi kesalahan saat memuat dashboard.')
+        setError('Failed to load dashboard.')
       } finally {
         setLoading(false)
       }
     }
 
     loadDashboard()
-  }, [])
+  }, [genderFilter, rangeFilter, groupBy, customDays])
 
-  const wastePieData = useMemo(() => {
+  const foodWasteTypeData = useMemo(() => {
     if (!data) return []
 
     return [
-      { name: 'No Food Waste', value: data.clean },
-      { name: 'Food Waste Detected', value: data.waste },
-    ].filter((item) => item.value > 0)
-  }, [data])
-
-  const foodWastePieData = useMemo(() => {
-    if (!data) return []
-
-    return [
-      { name: 'Rice', value: data.rice },
-      { name: 'Vegetables', value: data.vegetable },
-      { name: 'Protein Dishes', value: data.sideDish },
-    ].filter((item) => item.value > 0)
-  }, [data])
-
-  const foodWasteBarData = useMemo(() => {
-    if (!data) return []
-
-    return [
-      { name: 'Rice', total: data.rice },
-      { name: 'Vegetables', total: data.vegetable },
-      { name: 'Protein Dishes', total: data.sideDish },
+      { name: 'Rice', total: data.foodWasteType.rice },
+      { name: 'Vegetables', total: data.foodWasteType.vegetables },
+      { name: 'Protein Dishes', total: data.foodWasteType.proteinDishes },
     ]
   }, [data])
 
-  const genderData = useMemo(() => {
+  const foodWasteTypeByGender = useMemo(() => {
     if (!data) return []
 
-    return [
-      { name: 'Male', total: data.male },
-      { name: 'Female', total: data.female },
-    ]
+    return data.behaviorByGender.map((item) => ({
+      gender: item.gender,
+      Rice: item.rice,
+      Vegetables: item.vegetables,
+      'Protein Dishes': item.proteinDishes,
+    }))
   }, [data])
 
   if (loading) {
@@ -138,7 +156,7 @@ export default function PublicDashboardPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-red-50 px-5">
         <div className="rounded-3xl bg-white px-6 py-5 text-sm font-semibold text-red-600 shadow-sm">
-          {error || 'Data dashboard tidak tersedia.'}
+          {error || 'Dashboard data is not available.'}
         </div>
       </main>
     )
@@ -147,172 +165,237 @@ export default function PublicDashboardPage() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(187,247,208,0.55),_transparent_35%),linear-gradient(to_bottom,_#f7fdf8,_#ffffff)] px-4 py-6 md:px-8">
       <div className="mx-auto max-w-7xl">
-        <section className="mb-6 overflow-hidden rounded-[32px] border border-white/70 bg-white/85 p-5 shadow-[0_20px_60px_rgba(16,24,40,0.08)] backdrop-blur md:p-7">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
-                <Leaf className="size-4" />
-                CleanPlate Public Dashboard
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                CleanPlate Dashboard
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-                This dashboard summarizes respondents’ food waste results based on plate scans and leftover food classification.
-              </p>
-            </div>
-
-            <div className="rounded-3xl bg-gradient-to-br from-emerald-500 to-lime-500 px-5 py-4 text-white shadow-[0_16px_40px_rgba(34,197,94,0.25)]">
-              <p className="text-xs font-medium opacity-90">Waste Rate</p>
-              <p className="text-3xl font-bold">{data.wasteRate}%</p>
-            </div>
+        <section className="mb-6 rounded-[32px] border border-white/70 bg-white/85 p-5 shadow-[0_20px_60px_rgba(16,24,40,0.08)] backdrop-blur md:p-7">
+          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
+            <Leaf className="size-4" />
+            Clean Plate Monitoring Dashboard
           </div>
+
+          <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+            Food Waste Behavior Dashboard
+          </h1>
+
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
+            This dashboard monitors food waste behavior based on plate scan data,
+            detection results, monitoring period, and gender-based comparison.
+          </p>
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard
             title="Total Respondents"
-            value={data.totalUsers}
-            subtitle={`Male ${data.male} • Female ${data.female}`}
+            value={data.summary.totalRespondents}
+            subtitle={`Male: ${data.summary.maleRespondents} • Female: ${data.summary.femaleRespondents}`}
             icon={<UsersRound className="size-5" />}
-          />
-          <KpiCard
-            title="Total Scan"
-            value={data.totalScans}
-            subtitle=""
-            icon={<Activity className="size-5" />}
-          />
-          <KpiCard
-            title="No Food Waste"
-            value={data.clean}
-            subtitle={`${data.cleanRate}% of total scans`}
-            icon={
-              <img
-                src="/illustrations/nofoodwaste.png"
-                alt="No Food Waste"
-                className="h-10 w-10 object-contain"
-              />
-            }
           />
 
           <KpiCard
-            title="Food Waste Detected"
-            value={data.waste}
-            subtitle={`${data.wasteRate}% of total scans`}
-            icon={
-              <img
-                src="/illustrations/foodwastedetected.png"
-                alt="Food Waste"
-                className="h-10 w-10 object-contain"
-              />
+            title="Monitoring Period"
+            value={
+              data.summary.startDateLabel && data.summary.endDateLabel
+                ? data.summary.startDateLabel
+                : '-'
             }
+            subtitle={
+              data.summary.startDateLabel && data.summary.endDateLabel
+                ? `to ${data.summary.endDateLabel}`
+                : 'No scan data yet'
+            }
+            icon={<CalendarDays className="size-5" />}
+          />
+
+          <KpiCard
+            title="Total Plate Scans"
+            value={data.summary.totalScans}
+            subtitle={`${data.summary.cleanScans} clean • ${data.summary.wasteScans} waste detected`}
+            icon={<Activity className="size-5" />}
+          />
+
+          <KpiCard
+            title="Waste Rate"
+            value={`${data.summary.wasteRate}%`}
+            subtitle="Food waste detected / total scans"
+            icon={<Percent className="size-5" />}
             tone="amber"
           />
         </section>
 
-        <section className="mt-6 grid gap-4 md:grid-cols-3">
-          <MiniCard
-            title="Male Respondents"
-            value={data.male}
-            icon={<Mars className="size-5" />}
-          />
-          <MiniCard
-            title="Female Respondents"
-            value={data.female}
-            icon={<Venus className="size-5" />}
-          />
-          <MiniCard
-            title="Dominant Waste Type"
-            value={
-              data.dominantWaste?.value > 0
-                ? data.dominantWaste.name
-                : 'Belum ada'
-            }
-            icon={<PieChartIcon className="size-5" />}
-          />
+        <section className="mt-6 rounded-[32px] border border-white/70 bg-white/90 p-5 shadow-[0_18px_50px_rgba(16,24,40,0.07)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Dynamic Trend Filter
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Use these filters to analyze waste rate trends by time period,
+                gender, and grouping.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[520px]">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">
+                  Time Range
+                </label>
+                <select
+                  value={rangeFilter}
+                  onChange={(e) => setRangeFilter(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                >
+                  <option value="7d">Last 7 Days</option>
+                  <option value="14d">Last 14 Days</option>
+                  <option value="30d">Last 30 Days</option>
+                  <option value="custom">Custom Days</option>
+                  <option value="all">All Time</option>
+                </select>
+
+                {rangeFilter === 'custom' && (
+                  <input
+                    type="number"
+                    min={1}
+                    value={customDays}
+                    onChange={(e) =>
+                      setCustomDays(Math.max(1, Number(e.target.value)))
+                    }
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    placeholder="Example: 10"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">
+                  Gender
+                </label>
+                <select
+                  value={genderFilter}
+                  onChange={(e) => setGenderFilter(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                >
+                  <option value="all">All Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-500">
+                  Grouping
+                </label>
+                <select
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <ChartCard
-            title="No Food Waste vs Food Waste Detected"
-            description="This chart shows the proportion of clean plate scans compared to scans with remaining food."
+            title="Waste Rate Over Time"
+            description="Shows whether food waste behavior tends to increase or decrease during the selected trend period."
           >
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={wastePieData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={70}
-                  outerRadius={105}
-                  paddingAngle={4}
-                  label
-                >
-                  {wastePieData.map((entry, index) => (
-                    <Cell
-                      key={entry.name}
-                      fill={index === 0 ? COLORS.green : COLORS.amber}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                Range: {getRangeLabel(rangeFilter, customDays)}
+              </span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                Gender: {genderFilter === 'all' ? 'All Gender' : genderFilter}
+              </span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                Grouping: {groupBy}
+              </span>
+            </div>
+
+            <ResponsiveContainer width="100%" height={320}>
+              <LineChart data={data.trendByDate}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" interval="preserveStartEnd" minTickGap={20} />
+                <YAxis unit="%" domain={[0, 100]} />
+                <Tooltip formatter={(value) => `${value}%`} />
+                <Line
+                  type="monotone"
+                  dataKey="wasteRate"
+                  name="Waste Rate"
+                  stroke={COLORS.amber}
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </ChartCard>
 
           <ChartCard
-            title="Type of Food Waste"
-            description="Breakdown of leftover food types: rice, vegetables, and protein dishes."
+            title="Clean Plate vs Food Waste Detected by Date"
+            description="Shows daily scan composition, so the dashboard does not only show percentages but also time-based behavior."
           >
-            {foodWastePieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={foodWastePieData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={70}
-                    outerRadius={105}
-                    paddingAngle={4}
-                    label
-                  >
-                    {foodWastePieData.map((entry) => (
-                      <Cell
-                        key={entry.name}
-                        fill={
-                          entry.name === 'Rice'
-                            ? COLORS.lime
-                            : entry.name === 'Vegetables'
-                              ? COLORS.green
-                              : COLORS.amber
-                        }
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <EmptyChart text="Belum ada data sisa makanan." />
-            )}
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={data.trendByDate}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" interval="preserveStartEnd" minTickGap={20} />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar
+                  dataKey="clean"
+                  name="No Food Waste"
+                  stackId="a"
+                  fill={COLORS.green}
+                  radius={[0, 0, 8, 8]}
+                />
+                <Bar
+                  dataKey="waste"
+                  name="Food Waste Detected"
+                  stackId="a"
+                  fill={COLORS.amber}
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </ChartCard>
         </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <ChartCard
-            title="Food Waste Category Count"
-            description="Number of occurrences for each food waste type."
+            title="Waste Rate by Gender"
+            description="Compares food waste behavior between male and female respondents. This can support different treatment or recommendation strategies."
           >
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={foodWasteBarData}>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={data.behaviorByGender}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="gender" />
+                <YAxis unit="%" domain={[0, 100]} />
+                <Tooltip formatter={(value) => `${value}%`} />
+                <Bar dataKey="wasteRate" name="Waste Rate" radius={[12, 12, 0, 0]}>
+                  {data.behaviorByGender.map((entry) => (
+                    <Cell
+                      key={entry.gender}
+                      fill={entry.gender === 'Male' ? COLORS.blue : COLORS.pink}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <ChartCard
+            title="Food Waste Type Count"
+            description="Shows which type of leftover food appears most frequently. This replaces the previous pie chart to avoid duplicated visualization."
+          >
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={foodWasteTypeData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" />
                 <YAxis allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="total" radius={[12, 12, 0, 0]}>
-                  {foodWasteBarData.map((entry) => (
+                <Bar dataKey="total" name="Total Detected" radius={[12, 12, 0, 0]}>
+                  {foodWasteTypeData.map((entry) => (
                     <Cell
                       key={entry.name}
                       fill={
@@ -328,26 +411,38 @@ export default function PublicDashboardPage() {
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+        </section>
 
+        <section className="mt-6">
           <ChartCard
-            title="Respondent Gender Distribution"
-            description="This chart shows the distribution of respondents by gender."
+            title="Food Waste Type by Gender"
+            description="Shows whether male and female respondents have different leftover food patterns. This can help determine whether recommendations should be differentiated by gender."
           >
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={genderData}>
+            <ResponsiveContainer width="100%" height={340}>
+              <BarChart data={foodWasteTypeByGender}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" />
+                <XAxis dataKey="gender" />
                 <YAxis allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="total" radius={[12, 12, 0, 0]}>
-                  <Cell fill={COLORS.blue} />
-                  <Cell fill={COLORS.pink} />
-                </Bar>
+                <Legend />
+                <Bar dataKey="Rice" fill={COLORS.lime} radius={[10, 10, 0, 0]} />
+                <Bar dataKey="Vegetables" fill={COLORS.green} radius={[10, 10, 0, 0]} />
+                <Bar dataKey="Protein Dishes" fill={COLORS.amber} radius={[10, 10, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
         </section>
 
+        <section className="mt-6 rounded-[28px] border border-emerald-100 bg-emerald-50/70 p-5 text-sm leading-6 text-slate-600">
+          <p className="font-semibold text-emerald-700">
+            Waste Rate Definition
+          </p>
+          <p className="mt-1">
+            Waste Rate (%) = Food Waste Detected ÷ Total Plate Scans × 100.
+            The unit is percentage of total scan records during the selected
+            filter period.
+          </p>
+        </section>
       </div>
     </main>
   )
@@ -361,7 +456,7 @@ function KpiCard({
   tone = 'green',
 }: {
   title: string
-  value: number
+  value: string | number
   subtitle: string
   icon: React.ReactNode
   tone?: 'green' | 'amber'
@@ -378,30 +473,8 @@ function KpiCard({
         {icon}
       </div>
       <p className="text-sm font-medium text-slate-500">{title}</p>
-      <p className="mt-1 text-3xl font-bold text-slate-900">{value}</p>
-      <p className="mt-2 text-xs text-slate-400">{subtitle}</p>
-    </div>
-  )
-}
-
-function MiniCard({
-  title,
-  value,
-  icon,
-}: {
-  title: string
-  value: string | number
-  icon: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center gap-4 rounded-[28px] border border-white/70 bg-white/80 p-4 shadow-sm">
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-        {icon}
-      </div>
-      <div>
-        <p className="text-xs font-medium text-slate-400">{title}</p>
-        <p className="text-lg font-bold text-slate-900">{value}</p>
-      </div>
+      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-400">{subtitle}</p>
     </div>
   )
 }
@@ -420,14 +493,6 @@ function ChartCard({
       <h2 className="text-lg font-bold text-slate-900">{title}</h2>
       <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
       <div className="mt-5">{children}</div>
-    </div>
-  )
-}
-
-function EmptyChart({ text }: { text: string }) {
-  return (
-    <div className="flex h-[300px] items-center justify-center rounded-3xl bg-slate-50 text-sm text-slate-400">
-      {text}
     </div>
   )
 }

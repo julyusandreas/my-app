@@ -432,7 +432,7 @@ export default function AuthPage() {
               className="mt-6 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-lime-500 px-4 py-3.5 text-base font-semibold text-white shadow-[0_12px_30px_rgba(34,197,94,0.22)] transition hover:from-emerald-600 hover:to-lime-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
-                ? 'Memproses...'
+                ? 'Loading...'
                 : mode === 'login'
                   ? 'Login'
                   : 'Sign Up'}

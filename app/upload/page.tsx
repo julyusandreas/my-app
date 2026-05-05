@@ -353,9 +353,9 @@ export default function UploadPage() {
     if (currentStep === 'upload-camera') {
       return {
         stepLabel: 'Upload Step 1 of 4',
-        title: 'Ini adalah area preview kamera',
+        title: 'This is your camera preview',
         description:
-          'Arahkan kamera ke piring makananmu. Setelah siap, lanjut ke tombol Ambil Gambar.',
+          'Aim your camera at your plate, then tap the Take Photo button when you are ready.',
         target: previewRef.current,
         showNext: true,
         showBack: false,
@@ -369,15 +369,15 @@ export default function UploadPage() {
     if (currentStep === 'upload-capture') {
       return {
         stepLabel: 'Upload Step 2 of 4',
-        title: 'Tombol Ambil Gambar ada di sini',
+        title: 'Tap here to take a photo',
         description:
-          'Tekan tombol di bawah ini untuk langsung mengambil foto piringmu. Setelah foto berhasil diambil, tutorial akan lanjut otomatis.',
+          'Tap the button below to take a photo of your plate. The tutorial will continue automatically after the photo is taken.',
         target: captureButtonRef.current,
         showNext: false,
         showBack: true,
         nextLabel: 'Next',
         blockTargetClick: false,
-        primaryActionLabel: 'Ambil Gambar',
+        primaryActionLabel: 'Take Photo',
         onPrimaryAction: captureImage,
       }
     }
@@ -385,15 +385,15 @@ export default function UploadPage() {
     if (currentStep === 'upload-send') {
       return {
         stepLabel: 'Upload Step 3 of 4',
-        title: 'Tombol Kirim untuk analisis',
+        title: 'Submit your photo for analysis',
         description:
-          'Sekarang tekan tombol Kirim di bawah ini untuk memproses gambar.',
+          'Tap the Submit button below to process your image.',
         target: sendButtonRef.current,
         showNext: false,
         showBack: true,
         nextLabel: 'Next',
         blockTargetClick: false,
-        primaryActionLabel: 'Kirim',
+        primaryActionLabel: 'Submit',
         onPrimaryAction: sendToAI,
       }
     }
@@ -401,15 +401,15 @@ export default function UploadPage() {
     if (currentStep === 'upload-result') {
       return {
         stepLabel: 'Upload Step 4 of 4',
-        title: 'Ini adalah hasil analisis',
+        title: 'This is your analysis result',
         description:
-          'Sekarang tekan tombol Simpan di tutorial box ini agar hasil scan masuk ke riwayat.',
+          'Tap Save to keep this result in your history.',
         target: resultModalRef.current,
         showNext: false,
         showBack: true,
         nextLabel: 'Next',
         blockTargetClick: true,
-        primaryActionLabel: 'Simpan',
+        primaryActionLabel: 'Save',
         onPrimaryAction: saveResultFromTour,
       }
     }

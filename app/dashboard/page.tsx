@@ -65,6 +65,8 @@ const COLORS = {
   amber: '#f59e0b',
   blue: '#38bdf8',
   pink: '#f472b6',
+  salmon: '#aaaaaa',
+  purple: '#744577',
 }
 
 function getRangeLabel(rangeFilter: string, customDays: number) {
@@ -168,11 +170,11 @@ export default function DashboardPage() {
         <section className="mb-6 rounded-[32px] border border-white/70 bg-white/85 p-5 shadow-[0_20px_60px_rgba(16,24,40,0.08)] backdrop-blur md:p-7">
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">
             <Leaf className="size-4" />
-            Clean Plate Monitoring Dashboard
+            CleanPlate Monitoring Dashboard
           </div>
 
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-            Food Waste Behavior Dashboard
+            Food Waste Dashboard
           </h1>
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
@@ -298,7 +300,7 @@ export default function DashboardPage() {
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <ChartCard
             title="Waste Rate Over Time"
-            description="Shows whether food waste behavior tends to increase or decrease during the selected trend period."
+            description="Shows how the food waste rate changes over time during the selected period."
           >
             <div className="mb-4 flex flex-wrap gap-2">
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
@@ -333,13 +335,22 @@ export default function DashboardPage() {
 
           <ChartCard
             title="Clean Plate vs Food Waste Detected by Date"
-            description="Shows daily scan composition, so the dashboard does not only show percentages but also time-based behavior."
+            description="Displays the daily number of clean plates and food waste detections over time."
           >
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={data.trendByDate}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="date" interval="preserveStartEnd" minTickGap={20} />
-                <YAxis allowDecimals={false} />
+                <YAxis
+                  allowDecimals={false}
+                  width={90}
+                  label={{
+                    value: 'Number of Records per Day',
+                    angle: -90,
+                    offset: 10,
+                    style: { textAnchor: 'middle' },
+                  }}
+                />
                 <Tooltip />
                 <Legend />
                 <Bar
@@ -364,7 +375,7 @@ export default function DashboardPage() {
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <ChartCard
             title="Waste Rate by Gender"
-            description="Compares food waste behavior between male and female respondents. This can support different treatment or recommendation strategies."
+            description="Displays food waste rates by gender to compare waste levels between groups."
           >
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={data.behaviorByGender}>
@@ -386,13 +397,22 @@ export default function DashboardPage() {
 
           <ChartCard
             title="Food Waste Type Count"
-            description="Shows which type of leftover food appears most frequently. This replaces the previous pie chart to avoid duplicated visualization."
+            description="Shows the frequency of each food waste type to identify which items are most commonly left uneaten."
           >
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={foodWasteTypeData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" />
-                <YAxis allowDecimals={false} />
+                <YAxis
+                  allowDecimals={false}
+                  width={90} 
+                  label={{
+                    value: 'Number of Occurrences',
+                    angle: -90,
+                    offset: 10,
+                    style: { textAnchor: 'middle' },
+                  }}
+                />
                 <Tooltip />
                 <Bar dataKey="total" name="Total Detected" radius={[12, 12, 0, 0]}>
                   {foodWasteTypeData.map((entry) => (
@@ -400,7 +420,7 @@ export default function DashboardPage() {
                       key={entry.name}
                       fill={
                         entry.name === 'Rice'
-                          ? COLORS.lime
+                          ? COLORS.purple
                           : entry.name === 'Vegetables'
                             ? COLORS.green
                             : COLORS.amber
@@ -416,16 +436,25 @@ export default function DashboardPage() {
         <section className="mt-6">
           <ChartCard
             title="Food Waste Type by Gender"
-            description="Shows whether male and female respondents have different leftover food patterns. This can help determine whether recommendations should be differentiated by gender."
+            description="Shows the count of each food waste type by gender."
           >
             <ResponsiveContainer width="100%" height={340}>
               <BarChart data={foodWasteTypeByGender}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="gender" />
-                <YAxis allowDecimals={false} />
+                <YAxis
+                  allowDecimals={false}
+                   width={90}
+                  label={{
+                    value: 'Number of Food Waste Occurrences',
+                    angle: -90,
+                    offset: 10,
+                    style: { textAnchor: 'middle' },
+                  }}
+                />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="Rice" fill={COLORS.lime} radius={[10, 10, 0, 0]} />
+                <Bar dataKey="Rice" fill={COLORS.purple} radius={[10, 10, 0, 0]} />
                 <Bar dataKey="Vegetables" fill={COLORS.green} radius={[10, 10, 0, 0]} />
                 <Bar dataKey="Protein Dishes" fill={COLORS.amber} radius={[10, 10, 0, 0]} />
               </BarChart>

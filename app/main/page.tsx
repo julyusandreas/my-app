@@ -402,9 +402,9 @@ export default function MainPage() {
     if (currentStep === 'main-stats') {
       return {
         stepLabel: 'Step 1 of 4',
-        title: 'Progress kamu tercatat di dashboard',
+        title: 'Your Food Waste Summary',
         description:
-          'Bagian rekap dan pencapaian membantu kamu melihat pola sisa makanan dan progres penggunaan aplikasi.',
+          'The recap section shows the amount of leftover food in each category, helping you understand which types are most often left on your plate.',
         target: statsRef.current,
         showNext: true,
         showBack: false,
@@ -417,9 +417,9 @@ export default function MainPage() {
     if (currentStep === 'main-history') {
       return {
         stepLabel: 'Step 2 of 4',
-        title: 'Semua hasil scan masuk ke riwayat',
+        title: 'Your scan results are saved in History',
         description:
-          'Di sini kamu bisa melihat daftar hasil scan yang pernah kamu simpan.',
+          'You can view a list of all your saved scan results here.',
         target: historyRef.current,
         showNext: true,
         showBack: true,
@@ -432,9 +432,9 @@ export default function MainPage() {
     if (currentStep === 'main-upload') {
       return {
         stepLabel: 'Step 3 of 4',
-        title: 'Mulai scan dari tombol ini',
+        title: 'Tap here to start scanning',
         description:
-          'Tekan tombol Scan Plate untuk masuk ke halaman pengambilan gambar.',
+          'Tap the Scan Plate button to go to the photo capture screen.',
         target: uploadButtonRef.current,
         showNext: true,
         showBack: true,
@@ -462,14 +462,14 @@ export default function MainPage() {
 
       return {
         stepLabel: 'Step 4 of 4',
-        title: 'Ini adalah history yang baru saja kamu simpan',
+        title: 'Your latest saved result',
         description:
-          'Card history yang diberi outline hijau adalah hasil scan yang baru saja dibuat. Tekan tombol di bawah untuk membuka halaman detailnya.',
+          'The highlighted card shows your most recent scan. Tap below to view its details.',
         target: focusedHistoryTarget,
         showNext: false,
         showBack: true,
         nextLabel: 'Open Detail',
-        primaryActionLabel: 'Buka Detail History',
+        primaryActionLabel: 'View Details',
         onPrimaryAction: handleOpenFocusedHistoryFromTour,
       }
     }
@@ -683,11 +683,10 @@ export default function MainPage() {
             </div>
 
             <h3 className="text-xl font-bold text-slate-900">
-              Welcome to Clean Plate
+              Welcome to CleanPlate
             </h3>
             <p className="mt-3 text-sm leading-6 text-slate-500">
-              Aplikasi ini membantu kamu memantau sisa makanan di piring,
-              menyimpan hasil scan, dan melihat progres pengurangan food waste.
+              This app helps you track leftover food on your plate, save your scan results, and monitor your progress over time.
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">

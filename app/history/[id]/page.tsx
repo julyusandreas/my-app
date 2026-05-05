@@ -241,9 +241,9 @@ export default function HistoryDetailPage() {
     if (currentStep === 'detail-image') {
       return {
         stepLabel: 'Detail Step 1',
-        title: 'Ini adalah foto hasil scan',
+        title: 'This is your scanned photo',
         description:
-          'Bagian ini menampilkan gambar piring yang kamu upload sebelumnya.',
+          'This section displays the plate image you previously uploaded.',
         target: imageRef.current,
       }
     }
@@ -251,9 +251,9 @@ export default function HistoryDetailPage() {
     if (currentStep === 'detail-status') {
       return {
         stepLabel: 'Detail Step 2',
-        title: 'Ini adalah status hasil analisis',
+        title: 'This is your analysis status',
         description:
-          'Status ini menunjukkan apakah piring bersih atau masih ada sisa makanan.',
+          'This status shows whether your plate is clean or if any food remains.',
         target: statusRef.current,
       }
     }
@@ -271,9 +271,9 @@ export default function HistoryDetailPage() {
     if (currentStep === 'detail-message') {
       return {
         stepLabel: 'Detail Step 4',
-        title: 'Ini adalah pesan dari AI',
+        title: 'This is the message section',
         description:
-          'Pesan ini berisi feedback singkat dari hasil analisis gambar piringmu.',
+          'This section provides brief feedback based on your plate analysis.',
         target: messageRef.current,
       }
     }
@@ -281,9 +281,9 @@ export default function HistoryDetailPage() {
     if (currentStep === 'detail-time') {
       return {
         stepLabel: 'Detail Step 5',
-        title: 'Ini adalah waktu submit',
+        title: 'This is the submission time',
         description:
-          'Bagian ini menunjukkan kapan hasil scan tersebut disimpan.',
+          'It shows the date and time when your scan was saved.',
         target: timeRef.current,
       }
     }
@@ -375,9 +375,17 @@ export default function HistoryDetailPage() {
                       }`}
                     >
                       {data.is_clean_plate ? (
-                        <Sparkles className="size-5" />
+                        <img
+                          src="/illustrations/nofoodwaste.png"
+                          alt="Clean Plate"
+                          className="h-12 w-12 object-contain"
+                        />
                       ) : (
-                        <RotateCcw className="size-5" />
+                        <img
+                          src="/illustrations/foodwastedetected.png"
+                          alt="Food Waste"
+                          className="h-12 w-12 object-contain"
+                        />
                       )}
                     </div>
                   </div>

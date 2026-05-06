@@ -78,6 +78,12 @@ function getRangeLabel(rangeFilter: string, customDays: number) {
   return 'Last 30 Days'
 }
 
+function formatChartDate(date: string) {
+  return new Date(date).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+  })
+}
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -317,7 +323,15 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={data.trendByDate}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" interval="preserveStartEnd" minTickGap={20} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatChartDate}
+                  interval={0}
+                  angle={-25}
+                  textAnchor="end"
+                  height={60}
+                  tick={{ fontSize: 12 }}
+                />
                 <YAxis unit="%" domain={[0, 100]} />
                 <Tooltip formatter={(value) => `${value}%`} />
                 <Line
@@ -340,7 +354,15 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={data.trendByDate}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" interval="preserveStartEnd" minTickGap={20} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatChartDate}
+                  interval={0}
+                  angle={-25}
+                  textAnchor="end"
+                  height={60}
+                  tick={{ fontSize: 12 }}
+                />
                 <YAxis
                   allowDecimals={false}
                   width={90}

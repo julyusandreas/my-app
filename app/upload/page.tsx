@@ -146,27 +146,41 @@ export default function UploadPage() {
   }
 
   function captureImage() {
-    const video = videoRef.current
-    const canvas = canvasRef.current
+  const video = videoRef.current
+  const canvas = canvasRef.current
 
-    if (!video || !canvas) return
-    if (!video.videoWidth || !video.videoHeight) return
+  if (!video || !canvas) return
+  if (!video.videoWidth || !video.videoHeight) return
 
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+  const MAX_WIDTH = 512
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+  let width = video.videoWidth
+  let height = video.videoHeight
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-    setCapturedImage(dataUrl)
-
-    if (userId && currentStep === 'upload-capture') {
-      setWalkthroughStep(userId, 'upload-send')
-      refreshWalkthroughState()
-    }
+  // resize proporsional
+  if (width > MAX_WIDTH) {
+    const ratio = MAX_WIDTH / width
+    width = MAX_WIDTH
+    height = Math.round(height * ratio)
   }
+
+  canvas.width = width
+  canvas.height = height
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  ctx.drawImage(video, 0, 0, width, height)
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+
+  setCapturedImage(dataUrl)
+
+  if (userId && currentStep === 'upload-capture') {
+    setWalkthroughStep(userId, 'upload-send')
+    refreshWalkthroughState()
+  }
+}
 
   function retake() {
     setCapturedImage('')

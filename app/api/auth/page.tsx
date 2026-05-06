@@ -168,7 +168,7 @@ export default function AuthPage() {
           className="mt-8 w-full rounded-2xl px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 enabled:bg-lime-500 enabled:hover:bg-lime-600"
         >
           {loading
-            ? 'Loading...'
+            ? 'Memproses...'
             : mode === 'login'
               ? 'Login'
               : 'Sign Up'}

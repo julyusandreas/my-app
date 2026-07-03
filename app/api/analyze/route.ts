@@ -3,27 +3,122 @@ import { GoogleGenAI } from '@google/genai'
 
 export const dynamic = 'force-dynamic'
 
-type GeminiJsonResult = {
+type LeftoverType = 'nasi' | 'sayuran' | 'lauk'
+
+type RawGeminiResult = {
+  isCleanPlate?: unknown
+  isFoodWaste?: unknown
+  leftoverTypes?: unknown
+  isEdible?: unknown
+  message?: unknown
+  reason?: unknown
+}
+
+type AnalyzeResult = {
   isCleanPlate: boolean
-  leftoverTypes: string[]
+  isFoodWaste: boolean
+  leftoverTypes: LeftoverType[]
+  isEdible: boolean
   message: string
+  reason: string
 }
 
 function cleanJsonText(text: string) {
-  return text
-    .replace(/```json/g, '')
+  const cleaned = text
+    .replace(/```json/gi, '')
     .replace(/```/g, '')
     .trim()
+
+  const firstBrace = cleaned.indexOf('{')
+  const lastBrace = cleaned.lastIndexOf('}')
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return cleaned.slice(firstBrace, lastBrace + 1)
+  }
+
+  return cleaned
 }
 
-function normalizeLeftoverTypes(types: unknown): string[] {
+function toBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value
+
+  if (typeof value === 'string') {
+    const lower = value.trim().toLowerCase()
+    if (lower === 'true') return true
+    if (lower === 'false') return false
+  }
+
+  return undefined
+}
+
+function normalizeLeftoverTypes(types: unknown): LeftoverType[] {
   if (!Array.isArray(types)) return []
 
-  const allowed = new Set(['Rice', 'Vegetables', 'Protein Dishes'])
+  const mapper: Record<string, LeftoverType> = {
+    nasi: 'nasi',
+    rice: 'nasi',
 
-  return types
-    .map((item) => String(item).trim())
-    .filter((item) => allowed.has(item))
+    sayur: 'sayuran',
+    sayuran: 'sayuran',
+    vegetable: 'sayuran',
+    vegetables: 'sayuran',
+    veggies: 'sayuran',
+
+    lauk: 'lauk',
+    'lauk pauk': 'lauk',
+    protein: 'lauk',
+    'protein dish': 'lauk',
+    'protein dishes': 'lauk',
+    'side dish': 'lauk',
+    'side dishes': 'lauk',
+    chicken: 'lauk',
+    fish: 'lauk',
+    meat: 'lauk',
+    egg: 'lauk',
+    tofu: 'lauk',
+    tempeh: 'lauk',
+  }
+
+  const normalized: LeftoverType[] = []
+
+  for (const item of types) {
+    const parts = String(item)
+      .split(/[;,/]/)
+      .map((part) =>
+        part
+          .trim()
+          .toLowerCase()
+          .replace(/[_-]/g, ' ')
+      )
+
+    for (const part of parts) {
+      const mapped = mapper[part]
+
+      if (mapped && !normalized.includes(mapped)) {
+        normalized.push(mapped)
+      }
+    }
+  }
+
+  return normalized
+}
+
+function parseImageBase64(imageBase64: string) {
+  const match = imageBase64.match(
+    /^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/
+  )
+
+  if (match) {
+    return {
+      mimeType: match[1],
+      base64Data: match[2].replace(/\s/g, ''),
+    }
+  }
+
+  return {
+    mimeType: 'image/jpeg',
+    base64Data: imageBase64.replace(/\s/g, ''),
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -46,7 +141,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '')
+    const { mimeType, base64Data } = parseImageBase64(imageBase64)
 
     const ai = new GoogleGenAI({ apiKey })
 
@@ -56,72 +151,84 @@ Kamu adalah AI yang bertugas menganalisis sisa makanan pada piring setelah makan
 TUJUAN:
 Mendeteksi food waste secara realistis, hanya jika terdapat sisa makanan yang signifikan.
 
-LANGKAH ANALISIS (WAJIB BERURUTAN):
+LANGKAH ANALISIS WAJIB:
 1. Identifikasi apakah ada sesuatu yang tersisa di piring.
 2. Tentukan apakah sisa tersebut SIGNIFIKAN atau TIDAK SIGNIFIKAN.
 3. Hanya jika SIGNIFIKAN, lakukan klasifikasi jenis makanan.
 
-DEFINISI PENTING:
-
-Food waste = sisa makanan yang:
+DEFINISI FOOD WASTE:
+Food waste adalah sisa makanan yang:
 - Masih terlihat jelas sebagai makanan
-- Jumlahnya cukup terlihat (bukan hanya sedikit)
+- Jumlahnya cukup terlihat
 - Secara realistis bisa diambil dan dimakan kembali
 
-Bukan food waste jika:
-- Hanya berupa bumbu, saus, minyak, atau residu tipis
-- Hanya berupa remah kecil atau potongan sangat kecil (misalnya bawang, cabai)
-- Jumlahnya sangat sedikit dan tidak realistis untuk dikonsumsi kembali
-- Hanya tersisa bagian yang tidak dimakan (tulang, duri, kulit keras, biji, cangkang)
+SISA SIGNIFIKAN berarti FOOD WASTE.
+Contoh sisa signifikan:
+- Nasi dalam jumlah yang bisa diambil dengan sendok
+- Sayuran yang masih terlihat jelas
+- Potongan lauk yang masih terlihat jelas
+- Tumpukan makanan yang masih bisa dimakan meskipun berada di satu sisi piring
 
-Sisa SIGNIFIKAN jika:
-- Masih jelas bentuk makanannya
-- Jumlahnya cukup terlihat
-- Bisa diambil dengan mudah
-- Contoh: 1 sendok nasi, potongan lauk, sayur yang masih utuh
+SISA TIDAK SIGNIFIKAN berarti BUKAN FOOD WASTE.
+Contoh sisa tidak signifikan:
+- Bumbu
+- Saus
+- Minyak
+- Residu tipis
+- Remah kecil
+- Beberapa butir nasi yang menempel
+- Potongan sangat kecil seperti bawang atau cabai dalam jumlah sangat sedikit
+- Sisa yang tidak realistis untuk dikonsumsi kembali
 
-Sisa TIDAK SIGNIFIKAN jika:
-- Hanya berupa sisa kecil, bumbu, atau residu
-- Tidak berbentuk makanan utuh
-- Sulit atau tidak realistis untuk dimakan kembali
+BAGIAN YANG SELALU DIABAIKAN:
+- Tulang
+- Duri
+- Kulit keras
+- Biji
+- Cangkang
+- Tisu atau benda non-makanan
 
-PENILAIAN BERDASARKAN PROPORSI:
-- Jika sisa makanan kurang dari sekitar 10% dari area piring → anggap TIDAK SIGNIFIKAN
-- Jika sisa hanya terkumpul kecil di satu sisi → kemungkinan TIDAK SIGNIFIKAN
+ATURAN KHUSUS YANG SANGAT PENTING:
+- Jika masih terlihat nasi, sayuran, atau lauk dalam jumlah yang bisa diambil dengan sendok/garpu, maka isFoodWaste = true.
+- Jangan menganggap piring bersih jika masih ada nasi, sayuran, atau lauk yang terlihat jelas.
+- Jangan hanya melihat luas area piring. Walaupun sisa makanan terkumpul di satu sisi, jika jumlahnya masih bisa dimakan, maka tetap food waste.
+- Jika hanya ada bumbu, saus, minyak, atau residu tipis, maka isFoodWaste = false.
+- Jika ragu antara signifikan atau tidak signifikan, pilih TIDAK SIGNIFIKAN.
+- Hindari false positive, tetapi jangan mengabaikan sisa makanan yang jelas terlihat.
 
 KETAHANAN TERHADAP PENCAHAYAAN:
-- Jangan mengandalkan tingkat kecerahan, bayangan, atau kontras dalam menilai jumlah sisa makanan
-- Pencahayaan dapat membuat sisa terlihat lebih jelas atau lebih samar, tetapi tidak mengubah jumlah sebenarnya
-- Fokus pada ukuran dan jumlah nyata, bukan seberapa jelas terlihat
-- Jika perbedaan pencahayaan membuat sisa terlihat lebih jelas tetapi jumlahnya kecil, tetap anggap TIDAK SIGNIFIKAN
+- Jangan mengandalkan kecerahan, bayangan, atau kontras dalam menentukan jumlah sisa makanan.
+- Fokus pada bentuk, jumlah, dan apakah sisa tersebut realistis untuk dimakan kembali.
+- Pencahayaan dapat membuat sisa terlihat lebih jelas atau lebih samar, tetapi tidak mengubah jumlah sebenarnya.
 
-ATURAN KEPUTUSAN:
-- Jika ragu apakah sisa signifikan atau tidak → anggap TIDAK SIGNIFIKAN
-- Hindari false positive (menganggap ada food waste padahal tidak)
-- Prioritaskan hanya mendeteksi food waste yang jelas dan nyata
-
-KLASIFIKASI JENIS (hanya jika signifikan):
+KLASIFIKASI JENIS:
+Jika isFoodWaste = true, isi leftoverTypes hanya dengan kategori berikut:
 - nasi
 - sayuran
 - lauk
 
 PENENTUAN OUTPUT:
-
-Jika TIDAK ADA sisa signifikan:
+Jika TIDAK ADA food waste:
 - isCleanPlate = true
 - isFoodWaste = false
 - leftoverTypes = []
 - isEdible = false
 
-Jika ADA sisa signifikan:
+Jika ADA food waste:
 - isCleanPlate = false
 - isFoodWaste = true
-- leftoverTypes diisi sesuai jenis
-- isEdible:
-  - true jika masih terlihat layak dimakan
-  - false jika sangat kotor / hancur / tidak pantas
+- leftoverTypes diisi sesuai jenis makanan yang tersisa
+- isEdible = true jika sisa terlihat masih layak dimakan secara visual
+- isEdible = false jika sisa terlihat sangat kotor, hancur, atau tidak pantas dimakan
 
-FORMAT OUTPUT (WAJIB JSON VALID TANPA MARKDOWN):
+ATURAN MESSAGE:
+- Jika isFoodWaste = false, gunakan EXACT message:
+"Keep up this habit to help reduce food waste"
+
+- Jika isFoodWaste = true, gunakan EXACT message:
+"Let's try to finish your meal next time"
+
+FORMAT OUTPUT WAJIB JSON VALID TANPA MARKDOWN:
 
 {
   "isCleanPlate": boolean,
@@ -132,32 +239,24 @@ FORMAT OUTPUT (WAJIB JSON VALID TANPA MARKDOWN):
   "reason": string
 }
 
-ATURAN TAMBAHAN:
-- Jangan buat kategori selain nasi, sayuran, lauk
-- Gunakan bahasa Indonesia
-- message harus singkat, ramah, dan natural
-- reason harus menjelaskan keputusan secara singkat dan logis
-
-CONTOH:
-
-Kasus bumbu saja:
+CONTOH 1 - hanya bumbu/residu:
 {
   "isCleanPlate": true,
   "isFoodWaste": false,
   "leftoverTypes": [],
   "isEdible": false,
-  "message": "Piring sudah bersih.",
-  "reason": "Sisa hanya berupa bumbu dan residu yang tidak signifikan"
+  "message": "Keep up this habit to help reduce food waste",
+  "reason": "Sisa hanya berupa bumbu atau residu tipis yang tidak signifikan."
 }
 
-Kasus sisa nasi:
+CONTOH 2 - masih ada nasi, sayuran, dan lauk:
 {
   "isCleanPlate": false,
   "isFoodWaste": true,
-  "leftoverTypes": ["nasi"],
+  "leftoverTypes": ["nasi", "sayuran", "lauk"],
   "isEdible": true,
-  "message": "Masih ada sisa nasi, ayo dihabiskan ya!",
-  "reason": "Masih terlihat sisa nasi dalam jumlah yang cukup"
+  "message": "Let's try to finish your meal next time",
+  "reason": "Masih terlihat sisa nasi, sayuran, dan lauk dalam jumlah yang signifikan."
 }
 `
 
@@ -165,24 +264,31 @@ Kasus sisa nasi:
       model: 'gemini-2.5-flash',
       contents: [
         {
-          text: prompt,
-        },
-        {
-          inlineData: {
-            mimeType: 'image/jpeg',
-            data: base64Data,
-          },
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType,
+                data: base64Data,
+              },
+            },
+          ],
         },
       ],
+      config: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
     })
 
     const rawText = response.text ?? ''
     const jsonText = cleanJsonText(rawText)
 
-    let parsed: GeminiJsonResult
+    let parsed: RawGeminiResult
 
     try {
-      parsed = JSON.parse(jsonText)
+      parsed = JSON.parse(jsonText) as RawGeminiResult
     } catch {
       return NextResponse.json(
         {
@@ -193,19 +299,41 @@ Kasus sisa nasi:
       )
     }
 
-    const leftoverTypes = normalizeLeftoverTypes(parsed.leftoverTypes)
-    const isCleanPlate =
-      Boolean(parsed.isCleanPlate) || leftoverTypes.length === 0
+    const normalizedLeftoverTypes = normalizeLeftoverTypes(parsed.leftoverTypes)
 
-    const result: GeminiJsonResult = {
+    const parsedIsFoodWaste = toBoolean(parsed.isFoodWaste)
+    const parsedIsCleanPlate = toBoolean(parsed.isCleanPlate)
+    const parsedIsEdible = toBoolean(parsed.isEdible)
+
+    let isFoodWaste: boolean
+
+    if (normalizedLeftoverTypes.length > 0) {
+      isFoodWaste = true
+    } else if (parsedIsFoodWaste !== undefined) {
+      isFoodWaste = parsedIsFoodWaste
+    } else if (parsedIsCleanPlate !== undefined) {
+      isFoodWaste = !parsedIsCleanPlate
+    } else {
+      isFoodWaste = false
+    }
+
+    const isCleanPlate = !isFoodWaste
+    const leftoverTypes = isFoodWaste ? normalizedLeftoverTypes : []
+
+    const result: AnalyzeResult = {
       isCleanPlate,
-      leftoverTypes: isCleanPlate ? [] : leftoverTypes,
-      message:
-        typeof parsed.message === 'string' && parsed.message.trim()
-          ? parsed.message.trim()
-          : isCleanPlate
-            ? 'Great job! No food waste detected.'
-            : 'Food waste was detected. Try to take a suitable portion next time.',
+      isFoodWaste,
+      leftoverTypes,
+      isEdible: isFoodWaste ? parsedIsEdible ?? true : false,
+      message: isFoodWaste
+        ? "Let's try to finish your meal next time"
+        : 'Keep up this habit to help reduce food waste',
+      reason:
+        typeof parsed.reason === 'string' && parsed.reason.trim()
+          ? parsed.reason.trim()
+          : isFoodWaste
+            ? 'Masih terdapat sisa makanan yang signifikan pada piring.'
+            : 'Tidak terdapat sisa makanan signifikan pada piring.',
     }
 
     return NextResponse.json({ result })

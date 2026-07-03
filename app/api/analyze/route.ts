@@ -147,26 +147,26 @@ ATURAN MESSAGE:
 - Jangan membuat variasi message.
 - Gunakan message persis sesuai aturan.
 
-CONTOH:
+EXAMPLES:
 
-Kasus bumbu saja:
+Seasoning/residue only:
 {
   "isCleanPlate": true,
   "isFoodWaste": false,
   "leftoverTypes": [],
   "isEdible": false,
-  "message": "Piring sudah bersih.",
-  "reason": "Sisa hanya berupa bumbu dan residu yang tidak signifikan"
+  "message": "Keep up this habit to help reduce food waste",
+  "reason": "Only insignificant seasoning or residue remains."
 }
 
-Kasus sisa nasi:
+Significant rice, vegetables, and side dish:
 {
   "isCleanPlate": false,
   "isFoodWaste": true,
-  "leftoverTypes": ["nasi"],
+  "leftoverTypes": ["nasi", "sayuran", "lauk"],
   "isEdible": true,
-  "message": "Masih ada sisa nasi, ayo dihabiskan ya!",
-  "reason": "Masih terlihat sisa nasi yang cukup jelas"
+  "message": "Let's try to finish your meal next time",
+  "reason": "Visible rice, vegetables, and side dish remain in a significant amount."
 }
 `
 

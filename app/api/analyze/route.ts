@@ -3,7 +3,7 @@ import { GoogleGenAI } from '@google/genai'
 
 export const dynamic = 'force-dynamic'
 
-type LeftoverType = 'nasi' | 'sayuran' | 'lauk'
+type LeftoverType = 'Rice' | 'Vegetables' | 'Protein Dishes'
 
 type RawGeminiResult = {
   isCleanPlate?: unknown
@@ -55,28 +55,29 @@ function normalizeLeftoverTypes(types: unknown): LeftoverType[] {
   if (!Array.isArray(types)) return []
 
   const mapper: Record<string, LeftoverType> = {
-    nasi: 'nasi',
-    rice: 'nasi',
+    nasi: 'Rice',
+    rice: 'Rice',
 
-    sayur: 'sayuran',
-    sayuran: 'sayuran',
-    vegetable: 'sayuran',
-    vegetables: 'sayuran',
-    veggies: 'sayuran',
+    sayur: 'Vegetables',
+    sayuran: 'Vegetables',
+    vegetable: 'Vegetables',
+    vegetables: 'Vegetables',
+    veggie: 'Vegetables',
+    veggies: 'Vegetables',
 
-    lauk: 'lauk',
-    'lauk pauk': 'lauk',
-    protein: 'lauk',
-    'protein dish': 'lauk',
-    'protein dishes': 'lauk',
-    'side dish': 'lauk',
-    'side dishes': 'lauk',
-    chicken: 'lauk',
-    fish: 'lauk',
-    meat: 'lauk',
-    egg: 'lauk',
-    tofu: 'lauk',
-    tempeh: 'lauk',
+    lauk: 'Protein Dishes',
+    'lauk pauk': 'Protein Dishes',
+    protein: 'Protein Dishes',
+    'protein dish': 'Protein Dishes',
+    'protein dishes': 'Protein Dishes',
+    'side dish': 'Protein Dishes',
+    'side dishes': 'Protein Dishes',
+    chicken: 'Protein Dishes',
+    fish: 'Protein Dishes',
+    meat: 'Protein Dishes',
+    egg: 'Protein Dishes',
+    tofu: 'Protein Dishes',
+    tempeh: 'Protein Dishes',
   }
 
   const normalized: LeftoverType[] = []
@@ -146,117 +147,120 @@ export async function POST(req: NextRequest) {
     const ai = new GoogleGenAI({ apiKey })
 
     const prompt = `
-Kamu adalah AI yang bertugas menganalisis sisa makanan pada piring setelah makan.
+You are an AI that analyzes leftover food on a plate after a meal.
 
-TUJUAN:
-Mendeteksi food waste secara realistis, hanya jika terdapat sisa makanan yang signifikan.
+GOAL:
+Detect food waste realistically, only when the leftover food is significant.
 
-LANGKAH ANALISIS WAJIB:
-1. Identifikasi apakah ada sesuatu yang tersisa di piring.
-2. Tentukan apakah sisa tersebut SIGNIFIKAN atau TIDAK SIGNIFIKAN.
-3. Hanya jika SIGNIFIKAN, lakukan klasifikasi jenis makanan.
+IMPORTANT ANALYSIS STEPS:
+1. Identify whether anything remains on the plate.
+2. Decide whether the remaining item is SIGNIFICANT or NOT SIGNIFICANT.
+3. Only if it is SIGNIFICANT, classify the leftover food type.
 
-DEFINISI FOOD WASTE:
-Food waste adalah sisa makanan yang:
-- Masih terlihat jelas sebagai makanan
-- Jumlahnya cukup terlihat
-- Secara realistis bisa diambil dan dimakan kembali
+FOOD WASTE DEFINITION:
+Food waste means leftover food that:
+- Is clearly visible as food
+- Exists in a noticeable amount
+- Can realistically be picked up and eaten again
 
-SISA SIGNIFIKAN berarti FOOD WASTE.
-Contoh sisa signifikan:
-- Nasi dalam jumlah yang bisa diambil dengan sendok
-- Sayuran yang masih terlihat jelas
-- Potongan lauk yang masih terlihat jelas
-- Tumpukan makanan yang masih bisa dimakan meskipun berada di satu sisi piring
+SIGNIFICANT leftovers mean FOOD WASTE.
+Examples of significant leftovers:
+- Rice that can be picked up with a spoon
+- Visible vegetables in a noticeable amount
+- Visible protein/side dish pieces
+- A pile of food on one side of the plate that can still realistically be eaten
 
-SISA TIDAK SIGNIFIKAN berarti BUKAN FOOD WASTE.
-Contoh sisa tidak signifikan:
-- Bumbu
-- Saus
-- Minyak
-- Residu tipis
-- Remah kecil
-- Beberapa butir nasi yang menempel
-- Potongan sangat kecil seperti bawang atau cabai dalam jumlah sangat sedikit
-- Sisa yang tidak realistis untuk dikonsumsi kembali
+NOT SIGNIFICANT leftovers mean NOT FOOD WASTE.
+Examples of not significant leftovers:
+- Seasoning
+- Sauce
+- Oil
+- Thin residue
+- Small crumbs
+- A few grains of rice stuck to the plate
+- Very small pieces of onion, chili, or garnish
+- Anything too small or unrealistic to eat again
 
-BAGIAN YANG SELALU DIABAIKAN:
-- Tulang
-- Duri
-- Kulit keras
-- Biji
-- Cangkang
-- Tisu atau benda non-makanan
+ALWAYS IGNORE:
+- Bones
+- Fish bones
+- Hard skin
+- Seeds
+- Shells
+- Tissue or non-food objects
 
-ATURAN KHUSUS YANG SANGAT PENTING:
-- Jika masih terlihat nasi, sayuran, atau lauk dalam jumlah yang bisa diambil dengan sendok/garpu, maka isFoodWaste = true.
-- Jangan menganggap piring bersih jika masih ada nasi, sayuran, atau lauk yang terlihat jelas.
-- Jangan hanya melihat luas area piring. Walaupun sisa makanan terkumpul di satu sisi, jika jumlahnya masih bisa dimakan, maka tetap food waste.
-- Jika hanya ada bumbu, saus, minyak, atau residu tipis, maka isFoodWaste = false.
-- Jika ragu antara signifikan atau tidak signifikan, pilih TIDAK SIGNIFIKAN.
-- Hindari false positive, tetapi jangan mengabaikan sisa makanan yang jelas terlihat.
+VERY IMPORTANT RULES:
+- If visible rice, vegetables, or protein dishes remain in an amount that can be picked up with a spoon or fork, then isFoodWaste = true.
+- Do not classify the plate as clean if there is still visible rice, vegetables, or protein dishes in a significant amount.
+- Do not only judge by the plate area. Even if the leftover food is gathered on one side, it is still food waste if it can realistically be eaten.
+- If there is only seasoning, sauce, oil, or thin residue, then isFoodWaste = false.
+- If unsure whether the leftover is significant or not, choose NOT SIGNIFICANT.
+- Avoid false positives, but do not ignore clearly visible leftover food.
 
-KETAHANAN TERHADAP PENCAHAYAAN:
-- Jangan mengandalkan kecerahan, bayangan, atau kontras dalam menentukan jumlah sisa makanan.
-- Fokus pada bentuk, jumlah, dan apakah sisa tersebut realistis untuk dimakan kembali.
-- Pencahayaan dapat membuat sisa terlihat lebih jelas atau lebih samar, tetapi tidak mengubah jumlah sebenarnya.
+LIGHTING ROBUSTNESS:
+- Do not rely only on brightness, shadows, or contrast.
+- Focus on the shape, amount, and whether the leftover can realistically be eaten again.
+- Lighting can make leftovers look clearer or less clear, but it does not change the actual amount.
 
-KLASIFIKASI JENIS:
-Jika isFoodWaste = true, isi leftoverTypes hanya dengan kategori berikut:
-- nasi
-- sayuran
-- lauk
+CLASSIFICATION:
+If isFoodWaste = true, leftoverTypes must only use these exact English labels:
+- Rice
+- Vegetables
+- Protein Dishes
 
-PENENTUAN OUTPUT:
-Jika TIDAK ADA food waste:
+Do NOT use Indonesian labels such as "nasi", "sayuran", or "lauk" in the JSON output.
+
+OUTPUT RULES:
+If there is NO food waste:
 - isCleanPlate = true
 - isFoodWaste = false
 - leftoverTypes = []
 - isEdible = false
 
-Jika ADA food waste:
+If there IS food waste:
 - isCleanPlate = false
 - isFoodWaste = true
-- leftoverTypes diisi sesuai jenis makanan yang tersisa
-- isEdible = true jika sisa terlihat masih layak dimakan secara visual
-- isEdible = false jika sisa terlihat sangat kotor, hancur, atau tidak pantas dimakan
+- leftoverTypes must contain the correct categories
+- isEdible = true if the leftover visually still looks edible
+- isEdible = false if it looks very dirty, destroyed, or not suitable to eat
 
-ATURAN MESSAGE:
-- Jika isFoodWaste = false, gunakan EXACT message:
+MESSAGE RULES:
+If isFoodWaste = false, use this exact message:
 "Keep up this habit to help reduce food waste"
 
-- Jika isFoodWaste = true, gunakan EXACT message:
+If isFoodWaste = true, use this exact message:
 "Let's try to finish your meal next time"
 
-FORMAT OUTPUT WAJIB JSON VALID TANPA MARKDOWN:
+OUTPUT FORMAT:
+Return only valid JSON without markdown.
 
 {
   "isCleanPlate": boolean,
   "isFoodWaste": boolean,
-  "leftoverTypes": ["nasi" | "sayuran" | "lauk"],
+  "leftoverTypes": ["Rice" | "Vegetables" | "Protein Dishes"],
   "isEdible": boolean,
   "message": string,
   "reason": string
 }
 
-CONTOH 1 - hanya bumbu/residu:
+EXAMPLE 1 - only seasoning/residue:
 {
   "isCleanPlate": true,
   "isFoodWaste": false,
   "leftoverTypes": [],
   "isEdible": false,
   "message": "Keep up this habit to help reduce food waste",
-  "reason": "Sisa hanya berupa bumbu atau residu tipis yang tidak signifikan."
+  "reason": "Only insignificant seasoning or thin residue remains."
 }
 
-CONTOH 2 - masih ada nasi, sayuran, dan lauk:
+EXAMPLE 2 - visible rice, vegetables, and protein dishes:
 {
   "isCleanPlate": false,
   "isFoodWaste": true,
-  "leftoverTypes": ["nasi", "sayuran", "lauk"],
+  "leftoverTypes": ["Rice", "Vegetables", "Protein Dishes"],
   "isEdible": true,
   "message": "Let's try to finish your meal next time",
-  "reason": "Masih terlihat sisa nasi, sayuran, dan lauk dalam jumlah yang signifikan."
+  "reason": "Significant leftovers of rice, vegetables, and protein dishes are still visible."
 }
 `
 
@@ -332,8 +336,8 @@ CONTOH 2 - masih ada nasi, sayuran, dan lauk:
         typeof parsed.reason === 'string' && parsed.reason.trim()
           ? parsed.reason.trim()
           : isFoodWaste
-            ? 'Masih terdapat sisa makanan yang signifikan pada piring.'
-            : 'Tidak terdapat sisa makanan signifikan pada piring.',
+            ? 'Significant leftover food is still visible on the plate.'
+            : 'No significant food waste is detected on the plate.',
     }
 
     return NextResponse.json({ result })

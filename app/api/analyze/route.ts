@@ -53,44 +53,57 @@ export async function POST(req: NextRequest) {
     const prompt = `
 Kamu adalah AI yang bertugas menganalisis sisa makanan pada piring setelah makan.
 
-Tujuan:
-Mendeteksi food waste secara realistis, hanya jika sisa makanan signifikan.
+TUJUAN:
+Mendeteksi food waste secara realistis, hanya jika terdapat sisa makanan yang signifikan.
 
 LANGKAH ANALISIS (WAJIB BERURUTAN):
-
 1. Identifikasi apakah ada sesuatu yang tersisa di piring.
 2. Tentukan apakah sisa tersebut SIGNIFIKAN atau TIDAK SIGNIFIKAN.
-3. Hanya jika SIGNIFIKAN, lanjutkan ke klasifikasi jenis makanan.
+3. Hanya jika SIGNIFIKAN, lakukan klasifikasi jenis makanan.
 
 DEFINISI PENTING:
 
-Sisa SIGNIFIKAN (FOOD WASTE) jika:
+Food waste = sisa makanan yang:
 - Masih terlihat jelas sebagai makanan
 - Jumlahnya cukup terlihat (bukan hanya sedikit)
 - Secara realistis bisa diambil dan dimakan kembali
-- Contoh:
-  - 1 sendok nasi
-  - potongan ayam
-  - sayur yang masih utuh
 
-Sisa TIDAK SIGNIFIKAN (BUKAN FOOD WASTE) jika:
-- Hanya berupa:
-  - bumbu
-  - saus
-  - minyak
-  - remah kecil
-  - potongan sangat kecil (bawang, cabai, dll)
-  - sisa tipis yang menempel
-- Jumlahnya sangat sedikit
-- Tidak realistis untuk dikonsumsi kembali
+Bukan food waste jika:
+- Hanya berupa bumbu, saus, minyak, atau residu tipis
+- Hanya berupa remah kecil atau potongan sangat kecil (misalnya bawang, cabai)
+- Jumlahnya sangat sedikit dan tidak realistis untuk dikonsumsi kembali
+- Hanya tersisa bagian yang tidak dimakan (tulang, duri, kulit keras, biji, cangkang)
 
-Bagian yang SELALU DIABAIKAN:
-- tulang
-- duri
-- kulit keras
-- biji
-- cangkang
-- benda non-makanan
+Sisa SIGNIFIKAN jika:
+- Masih jelas bentuk makanannya
+- Jumlahnya cukup terlihat
+- Bisa diambil dengan mudah
+- Contoh: 1 sendok nasi, potongan lauk, sayur yang masih utuh
+
+Sisa TIDAK SIGNIFIKAN jika:
+- Hanya berupa sisa kecil, bumbu, atau residu
+- Tidak berbentuk makanan utuh
+- Sulit atau tidak realistis untuk dimakan kembali
+
+PENILAIAN BERDASARKAN PROPORSI:
+- Jika sisa makanan kurang dari sekitar 10% dari area piring → anggap TIDAK SIGNIFIKAN
+- Jika sisa hanya terkumpul kecil di satu sisi → kemungkinan TIDAK SIGNIFIKAN
+
+KETAHANAN TERHADAP PENCAHAYAAN:
+- Jangan mengandalkan tingkat kecerahan, bayangan, atau kontras dalam menilai jumlah sisa makanan
+- Pencahayaan dapat membuat sisa terlihat lebih jelas atau lebih samar, tetapi tidak mengubah jumlah sebenarnya
+- Fokus pada ukuran dan jumlah nyata, bukan seberapa jelas terlihat
+- Jika perbedaan pencahayaan membuat sisa terlihat lebih jelas tetapi jumlahnya kecil, tetap anggap TIDAK SIGNIFIKAN
+
+ATURAN KEPUTUSAN:
+- Jika ragu apakah sisa signifikan atau tidak → anggap TIDAK SIGNIFIKAN
+- Hindari false positive (menganggap ada food waste padahal tidak)
+- Prioritaskan hanya mendeteksi food waste yang jelas dan nyata
+
+KLASIFIKASI JENIS (hanya jika signifikan):
+- nasi
+- sayuran
+- lauk
 
 PENENTUAN OUTPUT:
 
@@ -103,16 +116,12 @@ Jika TIDAK ADA sisa signifikan:
 Jika ADA sisa signifikan:
 - isCleanPlate = false
 - isFoodWaste = true
-- leftoverTypes diisi sesuai jenis:
-  - nasi
-  - sayuran
-  - lauk
+- leftoverTypes diisi sesuai jenis
+- isEdible:
+  - true jika masih terlihat layak dimakan
+  - false jika sangat kotor / hancur / tidak pantas
 
-Penilaian Edible:
-- true → masih terlihat layak dimakan
-- false → sangat kotor / hancur / tidak pantas
-
-FORMAT OUTPUT WAJIB JSON:
+FORMAT OUTPUT (WAJIB JSON VALID TANPA MARKDOWN):
 
 {
   "isCleanPlate": boolean,
@@ -123,50 +132,32 @@ FORMAT OUTPUT WAJIB JSON:
   "reason": string
 }
 
-ATURAN TAMBAHAN (KRUSIAL):
+ATURAN TAMBAHAN:
+- Jangan buat kategori selain nasi, sayuran, lauk
+- Gunakan bahasa Indonesia
+- message harus singkat, ramah, dan natural
+- reason harus menjelaskan keputusan secara singkat dan logis
 
-- Jangan menganggap bumbu atau saus sebagai food waste
-- Jangan menganggap potongan kecil sebagai food waste jika tidak signifikan
-- Jika ragu antara signifikan atau tidak → anggap TIDAK SIGNIFIKAN
-- Prioritaskan akurasi terhadap food waste nyata, bukan deteksi berlebihan
+CONTOH:
 
-Gaya bahasa:
-- Bahasa Inggris
-- message singkat & ramah
-- reason jelas & logis
-
-ATURAN MESSAGE:
-- Jika isFoodWaste = false:
-  gunakan EXACT message:
-  "Keep up this habit to help reduce food waste"
-
-- Jika isFoodWaste = true:
-  gunakan EXACT message:
-  "Let's try to finish your meal next time"
-
-- Jangan membuat variasi message.
-- Gunakan message persis sesuai aturan.
-
-EXAMPLES:
-
-Seasoning/residue only:
+Kasus bumbu saja:
 {
   "isCleanPlate": true,
   "isFoodWaste": false,
   "leftoverTypes": [],
   "isEdible": false,
-  "message": "Keep up this habit to help reduce food waste",
-  "reason": "Only insignificant seasoning or residue remains."
+  "message": "Piring sudah bersih.",
+  "reason": "Sisa hanya berupa bumbu dan residu yang tidak signifikan"
 }
 
-Significant rice, vegetables, and side dish:
+Kasus sisa nasi:
 {
   "isCleanPlate": false,
   "isFoodWaste": true,
-  "leftoverTypes": ["nasi", "sayuran", "lauk"],
+  "leftoverTypes": ["nasi"],
   "isEdible": true,
-  "message": "Let's try to finish your meal next time",
-  "reason": "Visible rice, vegetables, and side dish remain in a significant amount."
+  "message": "Masih ada sisa nasi, ayo dihabiskan ya!",
+  "reason": "Masih terlihat sisa nasi dalam jumlah yang cukup"
 }
 `
 

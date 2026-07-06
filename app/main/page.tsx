@@ -3,13 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Drumstick,
   History,
-  Salad,
-  Soup,
-  Sparkles,
   Upload,
-  RotateCcw,
   LogOut,
   ChevronRight,
   Info,
@@ -42,6 +37,30 @@ function getLeftoverLabels(item: RecordItem): string[] {
   return labels
 }
 
+function getDailyProgress(history: RecordItem[]) {
+  const sorted = [...history].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+
+  const uniqueDays = new Map<string, RecordItem>()
+
+  for (const item of sorted) {
+    const key = new Date(item.created_at).toISOString().slice(0, 10)
+
+    if (!uniqueDays.has(key)) {
+      uniqueDays.set(key, item)
+    }
+  }
+
+  const days = Array.from(uniqueDays.values()).slice(0, 5)
+
+  return Array.from({ length: 5 }, (_, index) => ({
+    day: index + 1,
+    record: days[index] ?? null,
+  }))
+}
+
 function StatCard({
   icon,
   label,
@@ -70,6 +89,86 @@ function StatCard({
       </div>
       <p className="text-xs font-medium text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+    </div>
+  )
+}
+
+function ProgressStep({
+  day,
+  record,
+  isLast,
+}: {
+  day: number
+  record: RecordItem | null
+  isLast: boolean
+}) {
+  const isDone = Boolean(record)
+  const isClean = record?.is_clean_plate === true
+  const isWaste = record && !record.is_clean_plate
+
+  return (
+    <div className="flex flex-1 items-start">
+      <div className="flex min-w-[58px] flex-col items-center">
+        <div
+          className={`relative flex h-14 w-14 items-center justify-center rounded-full border-2 bg-white shadow-sm transition ${
+            isClean
+              ? 'border-emerald-400 shadow-emerald-100'
+              : isWaste
+                ? 'border-amber-300 shadow-amber-100'
+                : 'border-slate-300'
+          }`}
+        >
+          {!isDone && (
+            <span className="text-lg font-bold text-slate-400">{day}</span>
+          )}
+
+          {isClean && (
+            <img
+              src="/illustrations/nofoodwaste.png"
+              alt="No Food Waste"
+              className="h-11 w-11 object-contain"
+            />
+          )}
+
+          {isWaste && (
+            <img
+              src="/illustrations/foodwastedetected.png"
+              alt="Food Waste Detected"
+              className="h-11 w-11 object-contain"
+            />
+          )}
+
+          {isDone && (
+            <span
+              className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white ${
+                isClean ? 'bg-emerald-500' : 'bg-amber-400'
+              }`}
+            >
+              ✓
+            </span>
+          )}
+        </div>
+
+        <p
+          className={`mt-2 text-xs font-semibold ${
+            isClean
+              ? 'text-emerald-600'
+              : isWaste
+                ? 'text-amber-600'
+                : 'text-slate-500'
+          }`}
+        >
+          Day {day}
+        </p>
+      </div>
+
+      {!isLast && (
+        <div
+          className={`mt-7 flex-1 border-t-2 border-dashed ${
+            isDone ? 'border-emerald-300' : 'border-slate-300'
+          }`}
+        />
+      )}
     </div>
   )
 }
@@ -168,11 +267,16 @@ export default function MainPage() {
   const [historyTourReady, setHistoryTourReady] = useState(false)
 
   const statsRef = useRef<HTMLDivElement | null>(null)
+  const progressRef = useRef<HTMLElement | null>(null)
   const historyRef = useRef<HTMLElement | null>(null)
   const uploadButtonRef = useRef<HTMLButtonElement | null>(null)
   const historyCardRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   const hasHistory = (dashboard?.history?.length ?? 0) > 0
+
+  const progressDays = useMemo(() => {
+    return getDailyProgress(dashboard?.history ?? [])
+  }, [dashboard])
 
   useEffect(() => {
     const session = getSession()
@@ -225,8 +329,9 @@ export default function MainPage() {
     dashboard?.history?.[0] ??
     null
 
-  const focusedHistoryTarget =
-    focusedHistoryItem ? historyCardRefs.current[focusedHistoryItem.id] ?? null : null
+  const focusedHistoryTarget = focusedHistoryItem
+    ? historyCardRefs.current[focusedHistoryItem.id] ?? null
+    : null
 
   useEffect(() => {
     setHistoryTourReady(false)
@@ -252,9 +357,12 @@ export default function MainPage() {
 
     const targetMap: Partial<Record<WalkthroughStepId, HTMLElement | null>> = {
       'main-stats': statsRef.current,
+      'main-progress': progressRef.current,
       'main-history': historyRef.current,
       'main-upload': uploadButtonRef.current,
-      'main-history-open': hasHistory ? focusedHistoryTarget : uploadButtonRef.current,
+      'main-history-open': hasHistory
+        ? focusedHistoryTarget
+        : uploadButtonRef.current,
     }
 
     const el = targetMap[currentStep]
@@ -355,6 +463,12 @@ export default function MainPage() {
     if (!user || !currentStep) return
 
     if (currentStep === 'main-stats') {
+      setWalkthroughStep(user.id, 'main-progress')
+      refreshWalkthroughState()
+      return
+    }
+
+    if (currentStep === 'main-progress') {
       setWalkthroughStep(user.id, 'main-history')
       refreshWalkthroughState()
       return
@@ -381,8 +495,10 @@ export default function MainPage() {
   function handleMainBack() {
     if (!user || !currentStep) return
 
-    if (currentStep === 'main-history') {
+    if (currentStep === 'main-progress') {
       setWalkthroughStep(user.id, 'main-stats')
+    } else if (currentStep === 'main-history') {
+      setWalkthroughStep(user.id, 'main-progress')
     } else if (currentStep === 'main-upload') {
       setWalkthroughStep(user.id, 'main-history')
     } else if (currentStep === 'main-history-open') {
@@ -401,7 +517,7 @@ export default function MainPage() {
 
     if (currentStep === 'main-stats') {
       return {
-        stepLabel: 'Step 1 of 4',
+        stepLabel: 'Step 1 of 5',
         title: 'Your Food Waste Summary',
         description:
           'The recap section shows the amount of leftover food in each category, helping you understand which types are most often left on your plate.',
@@ -414,12 +530,26 @@ export default function MainPage() {
       }
     }
 
+    if (currentStep === 'main-progress') {
+      return {
+        stepLabel: 'Step 2 of 5',
+        title: 'Track your 5-day progress',
+        description:
+          'This section shows your daily scan progress. Each day displays a clean plate icon if no food waste is detected, or a food waste icon if leftovers are found.',
+        target: progressRef.current,
+        showNext: true,
+        showBack: true,
+        nextLabel: 'Next',
+        primaryActionLabel: undefined,
+        onPrimaryAction: undefined,
+      }
+    }
+
     if (currentStep === 'main-history') {
       return {
-        stepLabel: 'Step 2 of 4',
+        stepLabel: 'Step 3 of 5',
         title: 'Your scan results are saved in History',
-        description:
-          'You can view a list of all your saved scan results here.',
+        description: 'You can view a list of all your saved scan results here.',
         target: historyRef.current,
         showNext: true,
         showBack: true,
@@ -431,10 +561,9 @@ export default function MainPage() {
 
     if (currentStep === 'main-upload') {
       return {
-        stepLabel: 'Step 3 of 4',
+        stepLabel: 'Step 4 of 5',
         title: 'Tap here to start scanning',
-        description:
-          'Tap the Scan Plate button to go to the photo capture screen.',
+        description: 'Tap the Scan Plate button to go to the photo capture screen.',
         target: uploadButtonRef.current,
         showNext: true,
         showBack: true,
@@ -447,7 +576,7 @@ export default function MainPage() {
     if (currentStep === 'main-history-open') {
       if (!hasHistory) {
         return {
-          stepLabel: 'Step 4 of 4',
+          stepLabel: 'Step 5 of 5',
           title: 'Belum ada riwayat untuk dibuka',
           description:
             'Akun ini belum punya hasil scan yang tersimpan. Buat scan pertama dulu lewat tombol Scan Plate, lalu riwayat akan muncul di sini.',
@@ -461,7 +590,7 @@ export default function MainPage() {
       }
 
       return {
-        stepLabel: 'Step 4 of 4',
+        stepLabel: 'Step 5 of 5',
         title: 'Your latest saved result',
         description:
           'The highlighted card shows your most recent scan. Tap below to view its details.',
@@ -481,6 +610,7 @@ export default function MainPage() {
     if (!walkthroughActive || !currentStep) return false
 
     if (currentStep === 'main-stats') return Boolean(statsRef.current)
+    if (currentStep === 'main-progress') return Boolean(progressRef.current)
     if (currentStep === 'main-history') return Boolean(historyRef.current)
     if (currentStep === 'main-upload') return Boolean(uploadButtonRef.current)
 
@@ -540,8 +670,6 @@ export default function MainPage() {
           </section>
         )}
 
-      
-
         <section ref={statsRef} className="mt-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-900">Food Waste Recap</h2>
@@ -550,7 +678,11 @@ export default function MainPage() {
           <div className="grid grid-cols-3 gap-3">
             <StatCard
               icon={
-                <img src="/illustrations/rice.png" alt="Rice" className="h-10 w-10" />
+                <img
+                  src="/illustrations/rice.png"
+                  alt="Rice"
+                  className="h-10 w-10"
+                />
               }
               label="Rice"
               value={dashboard?.riceCount ?? 0}
@@ -559,7 +691,11 @@ export default function MainPage() {
 
             <StatCard
               icon={
-                <img src="/illustrations/vegetables.png" alt="Vegetables" className="h-10 w-10" />
+                <img
+                  src="/illustrations/vegetables.png"
+                  alt="Vegetables"
+                  className="h-10 w-10"
+                />
               }
               label="Vegetables"
               value={dashboard?.vegetableCount ?? 0}
@@ -568,7 +704,11 @@ export default function MainPage() {
 
             <StatCard
               icon={
-                <img src="/illustrations/proteindishes.png" alt="Protein" className="h-10 w-10" />
+                <img
+                  src="/illustrations/proteindishes.png"
+                  alt="Protein"
+                  className="h-10 w-10"
+                />
               }
               label="Protein Dishes"
               value={dashboard?.sideDishCount ?? 0}
@@ -577,37 +717,33 @@ export default function MainPage() {
           </div>
         </section>
 
-        <section className="mt-6">
+        <section ref={progressRef} className="mt-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-900">Your Progress</h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              icon={
-                <img
-                  src="/illustrations/nofoodwaste.png"
-                  alt="No Food Waste"
-                  className="h-10 w-10 object-contain"
-                />
-              }
-              label="No Food Waste"
-              value={dashboard?.cleanPlateCount ?? 0}
-              tone="emerald"
-            />
+          <div className="rounded-[30px] border border-white/70 bg-white/90 p-5 shadow-sm">
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-[420px] items-start justify-between">
+                {progressDays.map((item, index) => (
+                  <ProgressStep
+                    key={item.day}
+                    day={item.day}
+                    record={item.record}
+                    isLast={index === progressDays.length - 1}
+                  />
+                ))}
+              </div>
+            </div>
 
-            <StatCard
-              icon={
-                <img
-                  src="/illustrations/foodwastedetected.png"
-                  alt="Food Waste"
-                  className="h-10 w-10 object-contain"
-                />
-              }
-              label="Food Waste Detected"
-              value={dashboard?.tryAgainCount ?? 0}
-              tone="amber"
-            />
+            <div className="mt-5 rounded-3xl border border-emerald-100 bg-emerald-50/70 px-4 py-4">
+              <p className="font-semibold text-slate-900">
+                Complete your daily scans
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Scan your plate every day to track your progress!
+              </p>
+            </div>
           </div>
         </section>
 
@@ -621,9 +757,7 @@ export default function MainPage() {
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900">History</h2>
-              <p className="text-xs text-slate-400">
-                Your saved scan history
-              </p>
+              <p className="text-xs text-slate-400">Your saved scan history</p>
             </div>
           </div>
 
@@ -724,7 +858,9 @@ export default function MainPage() {
           blockTargetClick={false}
           primaryActionLabel={walkthroughConfig.primaryActionLabel}
           onPrimaryAction={walkthroughConfig.onPrimaryAction}
-          preferredPlacement={currentStep === 'main-history-open' ? 'bottom' : 'auto'}
+          preferredPlacement={
+            currentStep === 'main-history-open' ? 'bottom' : 'auto'
+          }
         />
       )}
     </main>

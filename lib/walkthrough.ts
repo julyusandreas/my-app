@@ -1,5 +1,6 @@
 export type WalkthroughStepId =
   | 'main-stats'
+  | 'main-progress'
   | 'main-history'
   | 'main-upload'
   | 'main-history-open'

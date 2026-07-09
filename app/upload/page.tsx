@@ -15,6 +15,11 @@ import {
 } from '@/lib/walkthrough'
 
 type ExtendedAnalyzeResult = AnalyzeResult
+type AnalysisStatus = 'checking' | 'clean' | 'waste'
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 export default function UploadPage() {
   const router = useRouter()
@@ -27,9 +32,14 @@ export default function UploadPage() {
   const sendButtonRef = useRef<HTMLButtonElement | null>(null)
   const resultModalRef = useRef<HTMLDivElement | null>(null)
 
-  const [capturedImage, setCapturedImage] = useState<string>('')
+  const [capturedImage, setCapturedImage] = useState('')
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [showAnalyzing, setShowAnalyzing] = useState(false)
+  const [analyzeProgress, setAnalyzeProgress] = useState(0)
+  const [analyzeText, setAnalyzeText] = useState('Uploading photo...')
+  const [analysisStatus, setAnalysisStatus] =
+    useState<AnalysisStatus>('checking')
   const [result, setResult] = useState<ExtendedAnalyzeResult | null>(null)
   const [cameraError, setCameraError] = useState('')
 
@@ -58,6 +68,7 @@ export default function UploadPage() {
           video: { facingMode: 'environment' },
           audio: false,
         })
+
         streamRef.current = stream
       }
 
@@ -67,7 +78,9 @@ export default function UploadPage() {
       }
     } catch (error) {
       console.error('Gagal mengakses kamera:', error)
-      setCameraError('Gagal mengakses kamera. Pastikan izin kamera sudah diaktifkan.')
+      setCameraError(
+        'Gagal mengakses kamera. Pastikan izin kamera sudah diaktifkan.'
+      )
     }
   }
 
@@ -83,6 +96,7 @@ export default function UploadPage() {
 
   useEffect(() => {
     const session = getSession()
+
     if (!session) {
       router.replace('/')
       return
@@ -117,7 +131,7 @@ export default function UploadPage() {
     })
 
     return () => cancelAnimationFrame(raf1)
-  }, [currentStep, capturedImage, showModal])
+  }, [currentStep, capturedImage, showModal, showAnalyzing])
 
   useEffect(() => {
     if (!walkthroughActive || !currentStep) return
@@ -130,6 +144,7 @@ export default function UploadPage() {
     }
 
     const el = targetMap[currentStep]
+
     if (el) {
       el.scrollIntoView({
         behavior: 'smooth',
@@ -140,52 +155,55 @@ export default function UploadPage() {
 
   function refreshWalkthroughState() {
     if (!userId) return
+
     const state = getWalkthroughState(userId)
     setWalkthroughActive(state.active)
     setCurrentStep(state.currentStep)
   }
 
   function captureImage() {
-  const video = videoRef.current
-  const canvas = canvasRef.current
+    const video = videoRef.current
+    const canvas = canvasRef.current
 
-  if (!video || !canvas) return
-  if (!video.videoWidth || !video.videoHeight) return
+    if (!video || !canvas) return
+    if (!video.videoWidth || !video.videoHeight) return
 
-  const MAX_WIDTH = 512
+    const MAX_WIDTH = 512
 
-  let width = video.videoWidth
-  let height = video.videoHeight
+    let width = video.videoWidth
+    let height = video.videoHeight
 
-  // resize proporsional
-  if (width > MAX_WIDTH) {
-    const ratio = MAX_WIDTH / width
-    width = MAX_WIDTH
-    height = Math.round(height * ratio)
+    if (width > MAX_WIDTH) {
+      const ratio = MAX_WIDTH / width
+      width = MAX_WIDTH
+      height = Math.round(height * ratio)
+    }
+
+    canvas.width = width
+    canvas.height = height
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.drawImage(video, 0, 0, width, height)
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+    setCapturedImage(dataUrl)
+
+    if (userId && currentStep === 'upload-capture') {
+      setWalkthroughStep(userId, 'upload-send')
+      refreshWalkthroughState()
+    }
   }
-
-  canvas.width = width
-  canvas.height = height
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  ctx.drawImage(video, 0, 0, width, height)
-
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
-
-  setCapturedImage(dataUrl)
-
-  if (userId && currentStep === 'upload-capture') {
-    setWalkthroughStep(userId, 'upload-send')
-    refreshWalkthroughState()
-  }
-}
 
   function retake() {
     setCapturedImage('')
     setShowModal(false)
+    setShowAnalyzing(false)
     setResult(null)
+    setAnalyzeProgress(0)
+    setAnalyzeText('Uploading photo...')
+    setAnalysisStatus('checking')
 
     if (userId && walkthroughActive) {
       setWalkthroughStep(userId, 'upload-capture')
@@ -208,7 +226,6 @@ export default function UploadPage() {
 
     const fileName = `plate-${Date.now()}.jpg`
     const filePath = `uploads/${fileName}`
-
     const blob = await (await fetch(dataUrl)).blob()
 
     const { error: uploadError } = await supabase.storage
@@ -237,11 +254,22 @@ export default function UploadPage() {
   async function sendToAI() {
     if (!capturedImage) return
 
-    setShowModal(true)
+    setShowModal(false)
+    setShowAnalyzing(true)
     setLoading(true)
+    setAnalyzeProgress(0)
+    setAnalyzeText('Uploading photo...')
+    setAnalysisStatus('checking')
+
+    const progressTimer = window.setInterval(() => {
+      setAnalyzeProgress((prev) => {
+        if (prev >= 90) return prev
+        return prev + 10
+      })
+    }, 250)
 
     try {
-      const res = await fetch('/api/analyze', {
+      const analyzePromise = fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -249,13 +277,35 @@ export default function UploadPage() {
         }),
       })
 
+      await wait(550)
+      setAnalyzeText('Analyzing your meal...')
+
+      await wait(550)
+      setAnalyzeText('Detecting leftover food...')
+
+      await wait(550)
+      setAnalyzeText('Classifying food types...')
+
+      const [res] = await Promise.all([analyzePromise, wait(2200)])
       const data = await res.json()
 
       if (!res.ok) {
         throw new Error(data.error || 'Gagal menganalisis gambar')
       }
 
-      setResult(data.result)
+      const aiResult = data.result as ExtendedAnalyzeResult
+
+      setAnalyzeProgress(100)
+      setAnalysisStatus(aiResult.isCleanPlate ? 'clean' : 'waste')
+      setAnalyzeText(
+        aiResult.isCleanPlate ? 'No Food Waste' : 'Food Waste Detected'
+      )
+
+      await wait(1200)
+
+      setResult(aiResult)
+      setShowAnalyzing(false)
+      setShowModal(true)
 
       if (userId && currentStep === 'upload-send') {
         setWalkthroughStep(userId, 'upload-result')
@@ -268,71 +318,67 @@ export default function UploadPage() {
           ? error.message
           : 'Terjadi kesalahan saat analisis gambar'
       )
+
+      setShowAnalyzing(false)
       setShowModal(false)
     } finally {
+      window.clearInterval(progressTimer)
       setLoading(false)
     }
   }
 
   async function saveResult(options?: { fromTour?: boolean }) {
-  const session = getSession()
-  if (!session || !result || !capturedImage) return
+    const session = getSession()
+    if (!session || !result || !capturedImage) return
 
-  const fromTour = options?.fromTour === true
+    const fromTour = options?.fromTour === true
 
-  if (walkthroughActive && currentStep === 'upload-result' && !fromTour) {
-    return
-  }
-
-  try {
-    setLoading(true)
-
-    const uploaded = await uploadImageToSupabase(capturedImage)
-
-    const res = await fetch('/api/records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: session.id,
-        imageUrl: uploaded.publicUrl,
-        imagePath: uploaded.path,
-        isCleanPlate: result.isCleanPlate,
-        leftoverTypes: result.leftoverTypes,
-        aiMessage: result.message,
-      }),
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      throw new Error(data.error || 'Gagal menyimpan record ke database')
+    if (walkthroughActive && currentStep === 'upload-result' && !fromTour) {
+      return
     }
 
-    const savedRecordId =
-      data?.record?.id ??
-      data?.data?.id ??
-      data?.id ??
-      null
+    try {
+      setLoading(true)
 
-    if (session.id && walkthroughActive && savedRecordId) {
-      setWalkthroughStep(session.id, 'main-history-open', {
-        focusRecordId: savedRecordId,
+      const uploaded = await uploadImageToSupabase(capturedImage)
+
+      const res = await fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.id,
+          imageUrl: uploaded.publicUrl,
+          imagePath: uploaded.path,
+          isCleanPlate: result.isCleanPlate,
+          leftoverTypes: result.leftoverTypes,
+          aiMessage: result.message,
+        }),
       })
-    }
 
-    stopCamera()
-    router.push('/main')
-  } catch (error) {
-    console.error('Save result error:', error)
-    alert(
-      error instanceof Error
-        ? error.message
-        : 'Gagal menyimpan hasil'
-    )
-  } finally {
-    setLoading(false)
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Gagal menyimpan record ke database')
+      }
+
+      const savedRecordId =
+        data?.record?.id ?? data?.data?.id ?? data?.id ?? null
+
+      if (session.id && walkthroughActive && savedRecordId) {
+        setWalkthroughStep(session.id, 'main-history-open', {
+          focusRecordId: savedRecordId,
+        })
+      }
+
+      stopCamera()
+      router.push('/main')
+    } catch (error) {
+      console.error('Save result error:', error)
+      alert(error instanceof Error ? error.message : 'Gagal menyimpan hasil')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   async function saveResultFromTour() {
     await saveResult({ fromTour: true })
@@ -400,8 +446,7 @@ export default function UploadPage() {
       return {
         stepLabel: 'Upload Step 3 of 4',
         title: 'Submit your photo for analysis',
-        description:
-          'Tap the Submit button below to process your image.',
+        description: 'Tap the Submit button below to process your image.',
         target: sendButtonRef.current,
         showNext: false,
         showBack: true,
@@ -416,8 +461,7 @@ export default function UploadPage() {
       return {
         stepLabel: 'Upload Step 4 of 4',
         title: 'This is your analysis result',
-        description:
-          'Tap Save to keep this result in your history.',
+        description: 'Tap Save to keep this result in your history.',
         target: resultModalRef.current,
         showNext: false,
         showBack: true,
@@ -429,7 +473,7 @@ export default function UploadPage() {
     }
 
     return null
-  }, [currentStep, result])
+  }, [currentStep, result, capturedImage])
 
   const overlayTargetReady = useMemo(() => {
     if (!walkthroughActive || !currentStep) return false
@@ -437,10 +481,40 @@ export default function UploadPage() {
     if (currentStep === 'upload-camera') return Boolean(previewRef.current)
     if (currentStep === 'upload-capture') return Boolean(captureButtonRef.current)
     if (currentStep === 'upload-send') return Boolean(sendButtonRef.current)
-    if (currentStep === 'upload-result') return Boolean(resultModalRef.current)
+    if (currentStep === 'upload-result') {
+      return Boolean(resultModalRef.current) && showModal && !showAnalyzing
+    }
 
     return false
-  }, [walkthroughActive, currentStep, capturedImage, showModal, overlayReadyTick])
+  }, [
+    walkthroughActive,
+    currentStep,
+    capturedImage,
+    showModal,
+    showAnalyzing,
+    overlayReadyTick,
+  ])
+
+  const analyzingTitle =
+    analysisStatus === 'checking'
+      ? 'Analyzing Plate'
+      : analysisStatus === 'clean'
+        ? 'No Food Waste'
+        : 'Food Waste Detected'
+
+  const analyzingRingColor =
+    analysisStatus === 'checking'
+      ? 'border-t-orange-400'
+      : analysisStatus === 'clean'
+        ? 'border-t-emerald-500'
+        : 'border-t-amber-500'
+
+  const analyzingIconBg =
+    analysisStatus === 'checking'
+      ? 'from-slate-50 to-slate-100 text-slate-700'
+      : analysisStatus === 'clean'
+        ? 'from-emerald-50 to-lime-100 text-emerald-700'
+        : 'from-amber-50 to-orange-100 text-amber-700'
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md px-4 py-6">
@@ -495,7 +569,8 @@ export default function UploadPage() {
             <button
               ref={sendButtonRef}
               onClick={sendToAI}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white"
+              disabled={loading || showAnalyzing}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Send className="size-4" />
               Submit
@@ -503,7 +578,8 @@ export default function UploadPage() {
 
             <button
               onClick={retake}
-              className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800"
+              disabled={loading || showAnalyzing}
+              className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
@@ -511,59 +587,128 @@ export default function UploadPage() {
         )}
       </section>
 
+      {showAnalyzing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-5 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[34px] bg-white px-6 py-8 text-center shadow-[0_24px_80px_rgba(15,23,42,0.25)]">
+            <div className="relative mx-auto flex h-32 w-32 items-center justify-center">
+              <div className="absolute inset-0 rounded-full border border-slate-100" />
+
+              <div
+                className={`absolute inset-0 rounded-full border-8 border-emerald-100 ${analyzingRingColor} transition-all duration-300`}
+                style={{
+                  transform: `rotate(${analyzeProgress * 3.6}deg)`,
+                }}
+              />
+
+              <div
+                className={`relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br ${analyzingIconBg} shadow-inner`}
+              >
+                {analysisStatus === 'checking' ? (
+                  <span className="text-5xl font-black text-slate-700">?</span>
+                ) : analysisStatus === 'clean' ? (
+                  <img
+                    src="/illustrations/nofoodwaste.png"
+                    alt="No Food Waste"
+                    className="h-20 w-20 object-contain"
+                  />
+                ) : (
+                  <img
+                    src="/illustrations/foodwastedetected.png"
+                    alt="Food Waste Detected"
+                    className="h-20 w-20 object-contain"
+                  />
+                )}
+              </div>
+            </div>
+
+            <p className="mt-5 text-5xl font-black tracking-tight text-slate-900">
+              {analyzeProgress}
+            </p>
+
+            <h2 className="mt-3 text-xl font-bold text-slate-900">
+              {analyzingTitle}
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              {analyzeText}
+            </p>
+
+            <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  analysisStatus === 'waste'
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                    : 'bg-gradient-to-r from-emerald-500 to-lime-500'
+                }`}
+                style={{ width: `${analyzeProgress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div
             ref={resultModalRef}
             className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl"
           >
-            {loading ? (
-              <div className="text-center">
-                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-lime-500 border-t-transparent" />
-                <p className="font-medium">Processing your image...</p>
-              </div>
-            ) : (
-              <div>
-                <h2 className="text-xl font-bold">Result</h2>
+            <div>
+              <h2 className="text-xl font-bold">Result</h2>
 
-                {result?.isCleanPlate ? (
-                  <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-emerald-700">
-                    🌟 Great job! You finished your meal
+              {result?.isCleanPlate ? (
+                <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-emerald-700">
+                  🌟 Great job! You finished your meal
+                </p>
+              ) : (
+                <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-amber-700">
+                  <p className="font-medium">
+                    A bit of food remains 😅 Food left on your plate:
                   </p>
-                ) : (
-                  <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-amber-700">
-                    <p className="font-medium">A bit of food remains 😅 Food left on your plate:</p>
+
+                  {result?.leftoverTypes?.length ? (
                     <ul className="mt-2 list-disc pl-5">
-                      {result?.leftoverTypes.map((item) => (
+                      {result.leftoverTypes.map((item) => (
                         <li key={item}>{item}</li>
                       ))}
                     </ul>
-                  </div>
-                )}
-
-                {result?.message && (
-                  <p className="mt-4 text-sm text-slate-600">{result.message}</p>
-                )}
-
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => saveResult({ fromTour: false })}
-                    disabled={walkthroughActive && currentStep === 'upload-result'}
-                    className="rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Save
-                  </button>
-
-                  <button
-                    onClick={() => setShowModal(false)}
-                    disabled={walkthroughActive && currentStep === 'upload-result'}
-                    className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
+                  ) : (
+                    <p className="mt-2 text-sm">
+                      Food waste was detected, but no specific food type was
+                      classified.
+                    </p>
+                  )}
                 </div>
+              )}
+
+              {result?.message && (
+                <p className="mt-4 text-sm text-slate-600">{result.message}</p>
+              )}
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => saveResult({ fromTour: false })}
+                  disabled={
+                    loading ||
+                    (walkthroughActive && currentStep === 'upload-result')
+                  }
+                  className="rounded-2xl bg-lime-500 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Save
+                </button>
+
+                <button
+                  onClick={() => setShowModal(false)}
+                  disabled={
+                    loading ||
+                    (walkthroughActive && currentStep === 'upload-result')
+                  }
+                  className="rounded-2xl bg-slate-200 px-4 py-3 font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancel
+                </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}

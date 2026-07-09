@@ -138,12 +138,8 @@ function ProgressStep({
             />
           )}
 
-          {isDone && (
-            <span
-              className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white ${
-                isClean ? 'bg-emerald-500' : 'bg-amber-400'
-              }`}
-            >
+          {isClean && (
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-xs font-bold text-white shadow">
               ✓
             </span>
           )}
